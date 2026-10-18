@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.notification.handler;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -48,6 +49,16 @@ public class EmailNotificationSenderTest {
             notification(Map.of("email", "ops@example.com")), handler(), contextStub());
 
         verify(notificationEmailGateway).sendEmail("ops@example.com", "subject", "content", true);
+    }
+
+    @Test
+    public void testSendReturnsACompletedFuture() {
+        EmailNotificationSender emailNotificationSender = new EmailNotificationSender(
+            objectProviderOf(notificationEmailGateway));
+
+        assertThat(
+            emailNotificationSender.send(notification(Map.of("email", "ops@example.com")), handler(), contextStub()))
+                .isCompleted();
     }
 
     @Test

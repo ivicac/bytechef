@@ -16,25 +16,31 @@
 
 package com.bytechef.platform.notification.handler;
 
-import com.bytechef.platform.notification.delivery.SlackNotificationClient;
+import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.notification.delivery.WebhookDelivery;
+import com.bytechef.platform.notification.delivery.WebhookDeliveryService;
+import com.bytechef.platform.notification.delivery.WebhookRetry;
+import com.bytechef.platform.notification.delivery.WebhookTestResult;
 import com.bytechef.platform.notification.domain.Notification;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.stereotype.Component;
 
 /**
- * Delivers SLACK-channel notifications through the shared {@link SlackNotificationClient}. Settings:
- * {@code slackWebhookUrl} (Slack incoming-webhook URL, required). The send is synchronous and throws on a missing URL
- * or a failed delivery.
- *
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnEEVersion
 public class SlackNotificationSender implements NotificationSender<SlackNotificationHandler> {
 
-    private final SlackNotificationClient slackNotificationClient;
+    private final WebhookDeliveryService webhookDeliveryService;
 
-    public SlackNotificationSender(SlackNotificationClient slackNotificationClient) {
-        this.slackNotificationClient = slackNotificationClient;
+    @SuppressFBWarnings("EI2")
+    public SlackNotificationSender(WebhookDeliveryService webhookDeliveryService) {
+        this.webhookDeliveryService = webhookDeliveryService;
     }
 
     @Override
@@ -43,20 +49,58 @@ public class SlackNotificationSender implements NotificationSender<SlackNotifica
     }
 
     @Override
-    public void send(
+    public CompletableFuture<Void> send(
         Notification notification, SlackNotificationHandler slackNotificationHandler,
         NotificationHandlerContext notificationHandlerContext) {
 
-        Map<String, Object> settings = notification.getSettings();
-
-        String slackWebhookUrl = (String) settings.get("slackWebhookUrl");
+        String slackWebhookUrl = (String) notification.getSetting("slackWebhookUrl");
 
         if (slackWebhookUrl == null || slackWebhookUrl.isBlank()) {
             throw new IllegalStateException(
                 "Notification " + notification.getId() + " has no Slack webhook URL configured");
         }
 
-        slackNotificationClient.send(
-            slackWebhookUrl.strip(), slackNotificationHandler.getText(notificationHandlerContext));
+        WebhookDelivery webhookDelivery = buildDelivery(
+            notification, slackNotificationHandler, notificationHandlerContext, slackWebhookUrl);
+
+        return webhookDeliveryService.submit(webhookDelivery)
+            .thenAccept(NotificationDeliveryOutcomes::requireAnySent);
+    }
+
+    @Override
+    public NotificationTestResult sendTest(
+        Notification notification, SlackNotificationHandler slackNotificationHandler,
+        NotificationHandlerContext notificationHandlerContext) {
+
+        String slackWebhookUrl = (String) notification.getSetting("slackWebhookUrl");
+
+        if (slackWebhookUrl == null || slackWebhookUrl.isBlank()) {
+            return NotificationTestResult.failed("Slack webhook URL is required");
+        }
+
+        WebhookTestResult webhookTestResult = webhookDeliveryService.sendTest(
+            buildDelivery(notification, slackNotificationHandler, notificationHandlerContext, slackWebhookUrl));
+
+        TestSendRedaction testSendRedaction = TestSendRedaction.of(List.of(slackWebhookUrl));
+
+        return new NotificationTestResult(
+            webhookTestResult.success(), webhookTestResult.statusCode(),
+            testSendRedaction.redact(webhookTestResult.responseBody()),
+            testSendRedaction.redact(webhookTestResult.error()), false);
+    }
+
+    private static WebhookDelivery buildDelivery(
+        Notification notification, SlackNotificationHandler slackNotificationHandler,
+        NotificationHandlerContext notificationHandlerContext, String slackWebhookUrl) {
+
+        String text = slackNotificationHandler.getText(notificationHandlerContext);
+
+        return WebhookDelivery.builder("slack", slackWebhookUrl.strip())
+            .description("notification " + notification.getId() + " '" + notification.getName() + "'")
+            .eventType("slack.message")
+            .validateUrl(true)
+            .payload(String.valueOf(notificationHandlerContext.getJobId()), JsonUtils.write(Map.of("text", text)))
+            .retry(WebhookRetry.none())
+            .build();
     }
 }

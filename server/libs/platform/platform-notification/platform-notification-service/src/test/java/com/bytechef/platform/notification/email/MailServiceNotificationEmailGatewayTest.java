@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.bytechef.platform.notification.email;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

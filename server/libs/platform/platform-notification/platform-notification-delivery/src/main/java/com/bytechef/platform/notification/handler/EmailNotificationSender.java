@@ -19,8 +19,10 @@ package com.bytechef.platform.notification.handler;
 import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.email.NotificationEmailGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,6 +38,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmailNotificationSender implements NotificationSender<EmailNotificationHandler> {
 
+    private static final int MAX_ERROR_LENGTH = 200;
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+
     private final ObjectProvider<NotificationEmailGateway> notificationEmailGatewayObjectProvider;
 
     @SuppressFBWarnings("EI2")
@@ -49,13 +54,11 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
     }
 
     @Override
-    public void send(
+    public CompletableFuture<Void> send(
         Notification notification, EmailNotificationHandler emailNotificationHandler,
         NotificationHandlerContext notificationHandlerContext) {
 
-        Map<String, Object> settings = notification.getSettings();
-
-        String email = (String) settings.get("email");
+        String email = (String) notification.getSetting("email");
 
         if (email == null || email.isBlank()) {
             throw new IllegalStateException(
@@ -73,5 +76,62 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
             email, emailNotificationHandler.getSubject(notificationHandlerContext),
             emailNotificationHandler.getContent(notificationHandlerContext),
             emailNotificationHandler.isHtml());
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public NotificationTestResult sendTest(
+        Notification notification, EmailNotificationHandler emailNotificationHandler,
+        NotificationHandlerContext notificationHandlerContext) {
+
+        String email = (String) notification.getSetting("email");
+
+        if (email == null || email.isBlank()) {
+            return NotificationTestResult.failed("Email address is required");
+        }
+
+        NotificationEmailGateway notificationEmailGateway = notificationEmailGatewayObjectProvider.getIfAvailable();
+
+        if (notificationEmailGateway == null) {
+            return NotificationTestResult.failed("No email gateway is available in this deployment");
+        }
+
+        try {
+            notificationEmailGateway.sendEmailNow(
+                email, emailNotificationHandler.getSubject(notificationHandlerContext),
+                emailNotificationHandler.getContent(notificationHandlerContext), emailNotificationHandler.isHtml());
+        } catch (MailException | IllegalStateException exception) {
+            String exceptionName = exception.getClass()
+                .getSimpleName();
+
+            return NotificationTestResult.failed(abbreviate(exceptionName + ": " + exception.getMessage()));
+        } catch (RuntimeException exception) {
+            String exceptionName = exception.getClass()
+                .getSimpleName();
+
+            return NotificationTestResult.failed("Test send failed (" + exceptionName + ")");
+        }
+
+        return NotificationTestResult.sent(false);
+    }
+
+    private static String abbreviate(String text) {
+        String singleLineText = WHITESPACE_PATTERN.matcher(text)
+            .replaceAll(" ");
+
+        singleLineText = singleLineText.strip();
+
+        if (singleLineText.length() <= MAX_ERROR_LENGTH) {
+            return singleLineText;
+        }
+
+        int end = MAX_ERROR_LENGTH;
+
+        if (Character.isHighSurrogate(singleLineText.charAt(end - 1))) {
+            end--;
+        }
+
+        return singleLineText.substring(0, end) + "…";
     }
 }
