@@ -148,6 +148,46 @@ public class JobTimeoutMonitorTest {
         verify(jobService, never()).update(any());
     }
 
+    @Test
+    public void testJobWaitingOnANonTerminalChildJobIsNotTimedOut() {
+        Job childJob = mock(Job.class);
+
+        when(childJob.getStatus()).thenReturn(Job.Status.STOPPED);
+
+        when(jobService.getLongRunningJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.getJob(1L)).thenReturn(job);
+        when(jobService.getChildJobIds(1L)).thenReturn(List.of(2L));
+        when(jobService.getJobs(List.of(2L))).thenReturn(List.of(childJob));
+
+        JobTimeoutMonitor jobTimeoutMonitor = getJobTimeoutMonitor(Duration.ofHours(1));
+
+        jobTimeoutMonitor.timeOutLongRunningJobs();
+
+        verify(taskExecutionService, never()).failIfUnfinished(anyLong(), anyString());
+        verify(jobService, never()).update(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    public void testJobWhoseChildJobsAreAllTerminalIsTimedOut() {
+        Job childJob = mock(Job.class);
+
+        when(childJob.getStatus()).thenReturn(Job.Status.COMPLETED);
+
+        when(jobService.getLongRunningJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.getJob(1L)).thenReturn(job);
+        when(jobService.getChildJobIds(1L)).thenReturn(List.of(2L));
+        when(jobService.getJobs(List.of(2L))).thenReturn(List.of(childJob));
+        when(taskExecutionService.getJobTaskExecutions(1L)).thenReturn(List.of(taskExecution));
+
+        JobTimeoutMonitor jobTimeoutMonitor = getJobTimeoutMonitor(Duration.ofHours(1));
+
+        jobTimeoutMonitor.timeOutLongRunningJobs();
+
+        verify(job).setStatus(Job.Status.FAILED);
+        verify(jobService).update(job);
+    }
+
     private JobTimeoutMonitor getJobTimeoutMonitor(Duration defaultTimeout) {
 
         return new JobTimeoutMonitor(

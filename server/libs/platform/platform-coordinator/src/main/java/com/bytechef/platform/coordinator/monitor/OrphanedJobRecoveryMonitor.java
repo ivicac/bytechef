@@ -27,7 +27,6 @@ import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,7 +50,13 @@ import org.springframework.scheduling.annotation.Scheduled;
  * keeps the waiting parent's rows fresh. Worse, a child that suspends for an approval or a wait may legitimately sit
  * idle for an unbounded human wait. A job with a non-terminal child job is therefore never treated as orphaned; when
  * the child does reach a terminal state, {@code SubflowJobStatusEventListener} propagates that to the parent task
- * through the normal completion path.
+ * through the normal completion path. The same holds when the child lookup is unsupported, since such a child cannot be
+ * ruled out.
+ * </p>
+ *
+ * <p>
+ * Only STARTED task executions are heartbeated, so a job whose only non-terminal task executions are still CREATED,
+ * i.e. queued for a worker, is not treated as orphaned either.
  * </p>
  *
  * <p>
@@ -75,9 +80,6 @@ public class OrphanedJobRecoveryMonitor {
     private static final Logger log = LoggerFactory.getLogger(OrphanedJobRecoveryMonitor.class);
 
     public static final String AUTO_RECOVERY_ATTEMPTS = "autoRecoveryAttempts";
-
-    private static final Set<Job.Status> NON_TERMINAL_JOB_STATUSES = EnumSet.of(
-        Job.Status.CREATED, Job.Status.STARTED, Job.Status.STOPPED);
 
     private final boolean autoResume;
     private final ApplicationEventPublisher eventPublisher;
@@ -155,32 +157,6 @@ public class OrphanedJobRecoveryMonitor {
         }
     }
 
-    private boolean hasNonTerminalChildJob(long jobId) {
-        List<Long> childJobIds;
-
-        try {
-            childJobIds = jobService.getChildJobIds(jobId);
-        } catch (UnsupportedOperationException exception) {
-            if (log.isTraceEnabled()) {
-                log.trace("Child-job lookup is not supported in this deployment", exception);
-            }
-
-            return false;
-        }
-
-        if (childJobIds.isEmpty()) {
-            return false;
-        }
-
-        for (Job childJob : jobService.getJobs(childJobIds)) {
-            if (NON_TERMINAL_JOB_STATUSES.contains(childJob.getStatus())) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private void recoverJob(long jobId, Instant cutoff) {
         Job job = jobService.getJob(jobId);
 
@@ -206,7 +182,14 @@ public class OrphanedJobRecoveryMonitor {
             return;
         }
 
-        if (hasNonTerminalChildJob(jobId)) {
+        boolean onlyQueued = !nonTerminalTaskExecutions.isEmpty() && nonTerminalTaskExecutions.stream()
+            .noneMatch(taskExecution -> taskExecution.getStatus() == TaskExecution.Status.STARTED);
+
+        if (onlyQueued) {
+            return;
+        }
+
+        if (JobMonitorSupport.hasNonTerminalChildJob(jobService, jobId)) {
             return;
         }
 
