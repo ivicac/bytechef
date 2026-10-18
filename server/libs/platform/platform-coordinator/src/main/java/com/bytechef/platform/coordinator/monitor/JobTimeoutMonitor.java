@@ -41,9 +41,10 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>
  * A timed-out job's non-terminal task executions and the job itself are marked FAILED (firing the normal job-status
  * fan-out) with a clear timeout error. Unlike orphan recovery there is no auto-resume: the run did not crash, it
- * exceeded its allowance, and resuming would immediately consume it again. Like {@link OrphanedJobRecoveryMonitor},
- * detection runs under the scheduler thread's tenant context; remote-client deployments without the long-running-jobs
- * query skip detection (warn-once semantics via debug logging).
+ * exceeded its allowance, and resuming would immediately consume it again. A job that waits on a sub-workflow is not
+ * timed out while it has a non-terminal child job; the child's runtime does not count against the parent. Like
+ * {@link OrphanedJobRecoveryMonitor}, detection runs under the scheduler thread's tenant context; remote-client
+ * deployments without the long-running-jobs query skip detection (warn-once semantics via debug logging).
  * </p>
  *
  * @author Ivica Cardic
@@ -132,6 +133,10 @@ public class JobTimeoutMonitor {
         Instant jobStartDate = job.getStartDate();
 
         if (jobStartDate == null || jobStartDate.isAfter(cutoff)) {
+            return;
+        }
+
+        if (JobMonitorSupport.hasNonTerminalChildJob(jobService, jobId)) {
             return;
         }
 
