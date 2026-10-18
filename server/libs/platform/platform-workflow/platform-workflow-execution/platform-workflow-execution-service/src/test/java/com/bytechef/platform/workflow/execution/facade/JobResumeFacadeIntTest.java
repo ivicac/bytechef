@@ -80,8 +80,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -95,7 +93,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @author Ivica Cardic
  */
 @Import({
-    JobFacadeImpl.class, JobResumeFacadeImpl.class, JobResumeFacadeIntTest.JobServiceTestConfiguration.class,
+    JobFacadeImpl.class, JobResumeFacadeImpl.class, JobResumeFacadeIntTest.JobResumeFacadeIntTestConfiguration.class,
     TaskExecutionServiceImpl.class
 })
 @RecordApplicationEvents
@@ -110,13 +108,6 @@ class JobResumeFacadeIntTest {
     private static final long MISSING_JOB_ID = 999_999L;
     private static final long MISSING_TASK_EXECUTION_ID = 999_999L;
     private static final String TENANT_ID = "000001";
-
-    @DynamicPropertySource
-    static void signingSecretProperties(DynamicPropertyRegistry dynamicPropertyRegistry) {
-        dynamicPropertyRegistry.add("bytechef.approval.signed-token.clock-skew", () -> "PT60S");
-        dynamicPropertyRegistry.add("bytechef.approval.signed-token.default-ttl", () -> "P30D");
-        dynamicPropertyRegistry.add("bytechef.approval.signed-token.secret", () -> SIGNING_SECRET);
-    }
 
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
@@ -1552,8 +1543,19 @@ class JobResumeFacadeIntTest {
         return EncodingUtils.base64EncodeToString(secretBytes);
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class JobServiceTestConfiguration {
+    /**
+     * {@link JobServiceImpl} has two constructors, so it cannot be imported as a plain class; wire the convenience one.
+     * The approval token signing secret is bound through {@code ApplicationProperties}, which this slice does not load,
+     * so the signing {@link ApprovalTokens} bean is declared directly, with the default time-to-live and clock skew.
+     */
+    @TestConfiguration
+    static class JobResumeFacadeIntTestConfiguration {
+
+        @Bean
+        ApprovalTokens approvalTokens() {
+            return new ApprovalTokensImpl(
+                Clock.systemUTC(), SIGNING_SECRET, List.of(), Duration.ofDays(30), Duration.ofSeconds(60), false);
+        }
 
         @Bean
         JobService jobService(JobRepository jobRepository) {

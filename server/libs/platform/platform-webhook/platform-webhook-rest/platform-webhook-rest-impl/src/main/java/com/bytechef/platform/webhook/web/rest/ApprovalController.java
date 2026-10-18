@@ -82,16 +82,58 @@ public class ApprovalController {
     private final JobResumeFacade jobResumeFacade;
 
     @SuppressFBWarnings("EI")
-    public ApprovalController(ObjectProvider<ApprovalTokens> approvalTokensProvider, JobResumeFacade jobResumeFacade) {
+    public ApprovalController(
+        ObjectProvider<ApprovalTokens> approvalTokensProvider, JobResumeFacade jobResumeFacade) {
+
         this.approvalTokensProvider = approvalTokensProvider;
         this.jobResumeFacade = jobResumeFacade;
     }
 
+    @SuppressFBWarnings(
+        value = "VA_FORMAT_STRING_USES_NEWLINE",
+        justification = "HTML page text block; the line separator inside the markup is irrelevant to rendering")
+    @GetMapping(value = "/approvals/{id}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> confirm(@PathVariable String id) {
+        Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
+
+        if (approvalIdOptional.isEmpty()) {
+            return htmlResponse(HttpStatus.BAD_REQUEST, "This approval link is not valid.");
+        }
+
+        ApprovalId approvalId = approvalIdOptional.get();
+
+        String page = approvalId.isApproved()
+            ? CONFIRMATION_PAGE.formatted("approval", "approve", "Approve")
+            : CONFIRMATION_PAGE.formatted("rejection", "reject", "Reject");
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.TEXT_HTML)
+            .body(page);
+    }
+
     // CSRF-exempt: the path token is the capability, and the GET only renders this confirmation form
     @SuppressFBWarnings("SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING")
-    @RequestMapping(method = {
-        RequestMethod.GET, RequestMethod.POST
-    }, value = "/approvals/{id}")
+    @PostMapping(value = "/approvals/{id}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> approveFromConfirmationPage(@PathVariable String id) {
+        Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
+
+        if (approvalIdOptional.isEmpty()) {
+            return htmlResponse(HttpStatus.BAD_REQUEST, "This approval link is not valid.");
+        }
+
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeApproval(id);
+        } catch (ApprovalInputException approvalInputException) {
+            return htmlResponse(HttpStatus.BAD_REQUEST, FORM_REQUIRED_MESSAGE);
+        }
+
+        return htmlResponse(getStatus(outcome), getMessage(outcome));
+    }
+
+    @SuppressFBWarnings("SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING")
+    @PostMapping("/approvals/{id}")
     public ResponseEntity<?> approve(@PathVariable String id) {
         Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
 
@@ -103,7 +145,7 @@ public class ApprovalController {
         JobResumeOutcome outcome;
 
         try {
-            outcome = jobResumeFacade.resumeApproval(approvalIdOptional.get());
+            outcome = jobResumeFacade.resumeApproval(id);
         } catch (ApprovalInputException approvalInputException) {
             return invalidApprovalInput(approvalInputException);
         }
@@ -112,18 +154,15 @@ public class ApprovalController {
             .build();
     }
 
-    private Optional<ApprovalId> parseApprovalId(String id) {
-        Optional<String> innerTokenOptional = resolveInnerToken(id);
+    private static ResponseEntity<ProblemDetail> invalidApprovalInput(ApprovalInputException approvalInputException) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, approvalInputException.getMessage());
 
-        if (innerTokenOptional.isEmpty()) {
-            return Optional.empty();
-        }
+        problemDetail.setProperty("errors", approvalInputException.getErrors());
 
-        try {
-            return Optional.of(ApprovalId.parse(innerTokenOptional.get()));
-        } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
-            return Optional.empty();
-        }
+        return ResponseEntity.badRequest()
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .body(problemDetail);
     }
 
     private Optional<ApprovalId> parseApprovalId(String id) {
@@ -175,26 +214,5 @@ public class ApprovalController {
         return ResponseEntity.status(pageStatus)
             .contentType(MediaType.TEXT_HTML)
             .body(RESULT_PAGE.formatted(message));
-    }
-
-    private static HttpStatus getStatus(JobResumeOutcome outcome) {
-        return switch (outcome) {
-            case OK -> HttpStatus.NO_CONTENT;
-            case INVALID_ID, STREAMING_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
-            case GONE -> HttpStatus.GONE;
-            case JOB_FAILED -> HttpStatus.UNPROCESSABLE_CONTENT;
-            case NOT_YET_SUSPENDED -> HttpStatus.CONFLICT;
-        };
-    }
-
-    private static ResponseEntity<ProblemDetail> invalidApprovalInput(ApprovalInputException approvalInputException) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-            HttpStatus.BAD_REQUEST, approvalInputException.getMessage());
-
-        problemDetail.setProperty("errors", approvalInputException.getErrors());
-
-        return ResponseEntity.badRequest()
-            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-            .body(problemDetail);
     }
 }

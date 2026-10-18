@@ -37,6 +37,8 @@ import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,9 +66,10 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
     private static final Logger log = LoggerFactory.getLogger(JobResumeFacadeImpl.class);
 
-    private static final String APPROVAL_EXPIRED_METRIC_NAME = "bytechef_approval_expired";
     private static final String APPROVAL_RESOLUTION_METRIC_NAME = "bytechef_approval_resolution";
+
     private static final String APPROVED = "approved";
+
     private static final String APPROVED_BY = "approvedBy";
 
     private final ApplicationEventPublisher applicationEventPublisher;
@@ -88,15 +91,15 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
         this(
             applicationEventPublisher, approvalTokensProvider, jobFacade, jobService, meterRegistryObjectProvider,
-            taskExecutionService, taskStateService, new TransactionTemplate(platformTransactionManager));
+            new TransactionTemplate(platformTransactionManager), taskExecutionService, taskStateFacade);
     }
 
     @SuppressFBWarnings("EI")
     public JobResumeFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ObjectProvider<ApprovalTokens> approvalTokensProvider,
         JobFacade jobFacade, JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider,
-        TaskExecutionService taskExecutionService, TaskStateService taskStateService,
-        TransactionOperations transactionOperations) {
+        TransactionOperations transactionOperations, TaskExecutionService taskExecutionService,
+        TaskStateFacade taskStateFacade) {
 
         this.applicationEventPublisher = applicationEventPublisher;
         this.approvalTokensProvider = approvalTokensProvider;
@@ -117,7 +120,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
                 return false;
             }
 
-            String jobResumeIdString = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+            JobResumeId jobResumeId = JobResumeId.parse((String) job.getMetadata(MetadataConstants.JOB_RESUME_ID));
 
             JobSuspends.closeCancelledApproval(job);
 
@@ -126,11 +129,10 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
             jobService.update(job);
 
-            deleteTaskState(jobResumeIdString);
+            taskStateFacade.delete(jobResumeId);
 
             applicationEventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.CANCELLED));
-            applicationEventPublisher.publishEvent(
-                new JobApprovalClosedEvent(jobId, jobResumeIdString, JobApprovalClosedEvent.Reason.CANCELLED));
+            applicationEventPublisher.publishEvent(new JobApprovalClosedEvent(jobId));
 
             log.info("Cancelled job {} while it waited on an approval", jobId);
 
@@ -184,7 +186,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             }
 
             if (JobSuspends.isSuspendedForApproval(job)) {
-                failExpiredApproval(job, "timer");
+                failExpiredApproval(job, jobResumeId, "timer");
 
                 return JobResumeOutcome.JOB_FAILED;
             }
@@ -210,7 +212,17 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     @Override
-    public JobResumeOutcome resumeApproval(ApprovalId approvalId) {
+    public JobResumeOutcome resumeApproval(String token) {
+        Optional<ApprovalId> approvalIdOptional = parseSignedApprovalId(token);
+
+        if (approvalIdOptional.isEmpty()) {
+            log.warn("Rejected an approval link: an approval needs a valid signed token");
+
+            return JobResumeOutcome.INVALID_ID;
+        }
+
+        ApprovalId approvalId = approvalIdOptional.get();
+
         AtomicReference<List<String>> approvalInputErrorsReference = new AtomicReference<>();
 
         JobResumeOutcome outcome = TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
@@ -232,7 +244,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     @Override
-    public JobResumeOutcome resumeJob(String id, Map<String, Object> data, @Nullable String approvedBy) {
+    public JobResumeOutcome resumeJob(String id, Map<String, Object> data, String approvedBy) {
         return resumeJob(id, data, approvedBy, false, jobId -> {});
     }
 
@@ -247,8 +259,6 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     private JobResumeOutcome resumeJob(
         String id, Map<String, Object> data, @Nullable String approvedBy, boolean streaming,
         LongConsumer jobIdConsumer) {
-
-        Map<String, Object> resumeData = normalizeApprovedBy(data, approvedBy);
 
         boolean signedToken = isVerifiedSignedToken(id);
 
@@ -277,22 +287,26 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
                 return rejectedOutcome;
             }
 
-            boolean approval = JobSuspends.isSuspendedForApproval(job);
+            Map<String, Object> resumeData = normalizeApprovedBy(job, data, approvedBy);
 
-            if (approval && !signedToken) {
-                log.warn(
-                    "Rejected an unsigned resume id for job {}: an approval needs a signed token",
+            if (!signedToken && JobSuspends.isSuspendedForApproval(job)) {
+                log.warn("Rejected an unsigned resume id for job {}: an approval needs a signed token",
                     jobResumeId.getJobId());
 
                 return JobResumeOutcome.INVALID_ID;
             }
 
-            if (approval && !(resumeData.get(APPROVED) instanceof Boolean)) {
-                log.warn(
-                    "Rejected a resume of job {}: an approval needs an explicit boolean 'approved' decision",
+            if (JobSuspends.isSuspendedForApproval(job) && !(resumeData.get(APPROVED) instanceof Boolean)) {
+                log.warn("Rejected a resume of job {}: an approval needs an explicit boolean 'approved' decision",
                     jobResumeId.getJobId());
 
                 return JobResumeOutcome.INVALID_ID;
+            }
+
+            if (JobSuspends.isSuspendedForSubflow(job)) {
+                log.warn("Job {} waits on a sub-workflow and resumes itself when it finishes", jobResumeId.getJobId());
+
+                return JobResumeOutcome.NOT_YET_SUSPENDED;
             }
 
             if (streaming && !isStreamingResumeAllowed(job)) {
@@ -304,14 +318,14 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             if (isSuspendExpired(job)) {
                 log.warn("Rejected resume for job {}: the pending approval expired", jobResumeId.getJobId());
 
-                failIfApprovalExpired(job);
+                failIfApprovalExpired(job, jobResumeId);
 
                 return JobResumeOutcome.GONE;
             }
 
             Map<String, Object> resolvedResumeData = resumeData;
 
-            if (approval) {
+            if (JobSuspends.isSuspendedForApproval(job)) {
                 ApprovalFormInputs.Resolution resolution = resolveApprovalInputs(job, jobResumeId, resumeData);
 
                 if (!resolution.isValid()) {
@@ -351,12 +365,105 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         return outcome;
     }
 
+    private void failIfApprovalExpired(Job job, JobResumeId jobResumeId) {
+        if (JobSuspends.isSuspendedForApproval(job) && fetchSuspendExpiresAt(job) != null) {
+            failExpiredApproval(job, jobResumeId, "resume");
+        } else {
+            incrementApprovalExpiredCounter("resume");
+        }
+    }
+
+    private void failExpiredApproval(Job job, JobResumeId jobResumeId, String source) {
+        long jobId = jobResumeId.getJobId();
+
+        Instant now = Instant.now();
+
+        Instant expiresAt = fetchSuspendExpiresAt(job);
+
+        JobSuspends.failExpiredApproval(job, expiresAt == null ? now : expiresAt, now);
+
+        jobService.update(job);
+
+        failSuspendedTaskExecution(job, now);
+
+        taskStateFacade.delete(jobResumeId);
+
+        incrementApprovalExpiredCounter(source);
+
+        applicationEventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.FAILED));
+        applicationEventPublisher.publishEvent(new JobApprovalClosedEvent(jobId));
+
+        ExecutionError executionError = Objects.requireNonNull(job.getError());
+
+        log.warn("Failed job {}: {}", jobId, executionError.getMessage());
+    }
+
+    private void failSuspendedTaskExecution(Job job, Instant now) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return;
+        }
+
+        Optional<TaskExecution> taskExecutionOptional = taskExecutionService.fetchTaskExecution(taskExecutionResumeId);
+
+        if (taskExecutionOptional.isEmpty()) {
+            return;
+        }
+
+        TaskExecution taskExecution = taskExecutionOptional.get();
+
+        TaskExecution.Status status = taskExecution.getStatus();
+
+        if (status != null && status.isTerminated()) {
+            return;
+        }
+
+        taskExecution.setEndDate(now);
+        taskExecution.setError(job.getError());
+        taskExecution.setStatus(TaskExecution.Status.FAILED);
+
+        taskExecutionService.update(taskExecution);
+    }
+
+    private @Nullable Instant fetchSuspendExpiresAt(Job job) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return null;
+        }
+
+        try {
+            return taskExecutionService.fetchTaskExecution(taskExecutionResumeId)
+                .map(taskExecution -> SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata()))
+                .orElse(null);
+        } catch (RuntimeException exception) {
+            log.warn("Could not read the suspend expiry of job {}", job.getId(), exception);
+
+            return null;
+        }
+    }
+
     private Optional<JobResumeOutcome> resumeSuspendedApproval(
         ApprovalId approvalId, AtomicReference<List<String>> approvalInputErrorsReference) {
 
         long jobId = approvalId.getJobId();
 
         Job job = jobService.getJob(jobId);
+
+        JobResumeOutcome statusOutcome = getStatusRejectedOutcome(job);
+
+        if (statusOutcome != null) {
+            return Optional.of(statusOutcome);
+        }
+
+        List<String> consumedApprovalIds = getConsumedApprovalIds(job);
+
+        if (consumedApprovalIds.contains(approvalId.getUuidAsString())) {
+            log.warn("Rejected a replayed approval link for job {}", jobId);
+
+            return Optional.of(JobResumeOutcome.GONE);
+        }
 
         String storedJobResumeIdString = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
         Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
@@ -365,31 +472,39 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             return Optional.empty();
         }
 
-        JobResumeOutcome statusOutcome = getStatusRejectedOutcome(job);
-
-        if (statusOutcome != null) {
-            return Optional.of(statusOutcome);
-        }
-
         if (Objects.equals(storedJobResumeIdString, job.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID))) {
             log.warn("Rejected an approval link for job {}: its suspend was already resolved", jobId);
 
             return Optional.of(JobResumeOutcome.GONE);
         }
 
+        if (JobSuspends.isSuspendedForSubflow(job)) {
+            log.warn("Job {} waits on a sub-workflow and resumes itself when it finishes", jobId);
+
+            return Optional.of(JobResumeOutcome.NOT_YET_SUSPENDED);
+        }
+
+        if (!isIssuedForCurrentSuspend(approvalId, job, taskExecutionResumeId)) {
+            log.warn("Rejected an approval link for job {}: it was issued for a different suspend", jobId);
+
+            return Optional.of(JobResumeOutcome.INVALID_ID);
+        }
+
         if (isSuspendExpired(job)) {
             log.warn("Rejected an approval link for job {}: the pending approval expired", jobId);
 
-            failIfApprovalExpired(job);
+            failIfApprovalExpired(job, JobResumeId.parse(storedJobResumeIdString));
 
             return Optional.of(JobResumeOutcome.GONE);
         }
 
-        Map<String, Object> resumeData = Map.of(APPROVED, approvalId.isApproved());
+        Map<String, Object> approvalData = Map.of(APPROVED, approvalId.isApproved());
+
+        Map<String, Object> resumeData = approvalData;
 
         if (JobSuspends.isSuspendedForApproval(job)) {
             ApprovalFormInputs.Resolution resolution = resolveApprovalInputs(
-                job, JobResumeId.parse(storedJobResumeIdString), resumeData);
+                job, JobResumeId.parse(storedJobResumeIdString), approvalData);
 
             if (!resolution.isValid()) {
                 approvalInputErrorsReference.set(resolution.errors());
@@ -400,7 +515,11 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             resumeData = resolution.data();
         }
 
-        consumeJobResumeId(job);
+        List<String> updatedConsumedApprovalIds = new ArrayList<>(consumedApprovalIds);
+
+        updatedConsumedApprovalIds.add(approvalId.getUuidAsString());
+
+        consumeJobResumeId(job, Map.of(MetadataConstants.CONSUMED_APPROVAL_IDS, updatedConsumedApprovalIds));
 
         if (!jobService.tryClaimResume(job)) {
             log.warn("Lost the resume claim for job {} to a concurrent resolution or the expiry sweep", jobId);
@@ -417,26 +536,14 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         return Optional.of(JobResumeOutcome.OK);
     }
 
-    private JobResumeOutcome resumeStoppedApproval(ApprovalId approvalId) {
-        try {
-            transactionOperations.executeWithoutResult(
-                transactionStatus -> jobFacade.resumeApproval(
-                    approvalId.getJobId(), approvalId.getUuidAsString(), approvalId.isApproved()));
-        } catch (IllegalArgumentException | IllegalStateException exception) {
-            log.warn("Rejected an approval link for job {}: {}", approvalId.getJobId(), exception.getMessage());
-
-            return JobResumeOutcome.GONE;
-        }
-
-        return JobResumeOutcome.OK;
-    }
-
     private ApprovalFormInputs.Resolution resolveApprovalInputs(
         Job job, JobResumeId jobResumeId, Map<String, Object> resumeData) {
 
         boolean approved = Boolean.TRUE.equals(resumeData.get(APPROVED));
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
 
-        Optional<TaskExecution> taskExecutionOptional = fetchSuspendedTaskExecution(job);
+        Optional<TaskExecution> taskExecutionOptional = taskExecutionResumeId == null
+            ? Optional.empty() : taskExecutionService.fetchTaskExecution(taskExecutionResumeId);
 
         if (taskExecutionOptional.isEmpty()) {
             return ApprovalFormInputs.resolve(null, resumeData, approved);
@@ -464,90 +571,84 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         }
     }
 
-    private void failIfApprovalExpired(Job job) {
-        if (JobSuspends.isSuspendedForApproval(job)) {
-            failExpiredApproval(job, "resume");
-        } else {
-            incrementApprovalExpiredCounter("resume");
-        }
-    }
-
-    private void failExpiredApproval(Job job, String source) {
-        long jobId = Objects.requireNonNull(job.getId(), "id");
-
-        String jobResumeIdString = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-        Instant now = Instant.now();
-
-        Optional<TaskExecution> taskExecutionOptional = fetchSuspendedTaskExecution(job);
-
-        Instant expiresAt = taskExecutionOptional
-            .map(taskExecution -> SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata()))
-            .orElse(now);
-
-        JobSuspends.failExpiredApproval(job, expiresAt, now);
-
-        jobService.update(job);
-
-        taskExecutionOptional.ifPresent(taskExecution -> failSuspendedTaskExecution(taskExecution, job, now));
-
-        deleteTaskState(jobResumeIdString);
-
-        incrementApprovalExpiredCounter(source);
-
-        applicationEventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.FAILED));
-        applicationEventPublisher.publishEvent(
-            new JobApprovalClosedEvent(jobId, jobResumeIdString, JobApprovalClosedEvent.Reason.EXPIRED));
-
-        ExecutionError executionError = Objects.requireNonNull(job.getError());
-
-        log.warn("Failed job {}: {}", jobId, executionError.getMessage());
-    }
-
-    private void failSuspendedTaskExecution(TaskExecution taskExecution, Job job, Instant now) {
-        TaskExecution.Status status = taskExecution.getStatus();
-
-        if (status != null && status.isTerminated()) {
-            return;
-        }
-
-        taskExecution.setEndDate(now);
-        taskExecution.setError(job.getError());
-        taskExecution.setStatus(TaskExecution.Status.FAILED);
-
-        taskExecutionService.update(taskExecution);
-    }
-
-    private void deleteTaskState(@Nullable String jobResumeIdString) {
-        if (jobResumeIdString == null) {
-            return;
-        }
-
-        taskStateService.delete(JobResumeId.parse(jobResumeIdString));
-    }
-
-    private Optional<TaskExecution> fetchSuspendedTaskExecution(Job job) {
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
-
-        if (taskExecutionResumeId == null) {
-            return Optional.empty();
-        }
-
+    private JobResumeOutcome resumeStoppedApproval(ApprovalId approvalId) {
         try {
-            return Optional.of(taskExecutionService.getTaskExecution(taskExecutionResumeId));
-        } catch (RuntimeException runtimeException) {
-            log.warn(
-                "Could not read the suspended task execution {} of job {}", taskExecutionResumeId, job.getId(),
-                runtimeException);
+            transactionOperations.executeWithoutResult(
+                transactionStatus -> jobFacade.resumeApproval(
+                    approvalId.getJobId(), approvalId.getUuidAsString(), approvalId.isApproved()));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            log.warn("Rejected an approval link for job {}", approvalId.getJobId(), exception);
 
-            return Optional.empty();
+            return JobResumeOutcome.GONE;
         }
+
+        return JobResumeOutcome.OK;
+    }
+
+    private static boolean isStreamingResumeAllowed(Job job) {
+        Map<String, ?> metadata = job.getMetadata();
+
+        return MapUtils.getBoolean(metadata, MetadataConstants.STREAMING_RESUME, false) ||
+            MapUtils.getBoolean(metadata, MetadataConstants.STREAMED_EXECUTION, false);
+    }
+
+    private static boolean isIssuedForCurrentSuspend(ApprovalId approvalId, Job job, long taskExecutionResumeId) {
+        Long issuingTaskExecutionId = approvalId.getIssuingTaskExecutionId();
+
+        if (issuingTaskExecutionId == null || issuingTaskExecutionId == taskExecutionResumeId) {
+            return true;
+        }
+
+        if (issuingTaskExecutionId > taskExecutionResumeId) {
+            return false;
+        }
+
+        Long lastResumedTaskExecutionId = MapUtils.getLong(
+            job.getMetadata(), MetadataConstants.LAST_RESUMED_TASK_EXECUTION_ID);
+
+        return lastResumedTaskExecutionId == null || lastResumedTaskExecutionId < issuingTaskExecutionId;
+    }
+
+    private static List<String> getConsumedApprovalIds(Job job) {
+        Object consumedApprovalIds = job.getMetadata(MetadataConstants.CONSUMED_APPROVAL_IDS);
+
+        if (!(consumedApprovalIds instanceof Collection<?> consumedApprovalIdCollection)) {
+            return List.of();
+        }
+
+        List<String> consumedApprovalIdStrings = new ArrayList<>();
+
+        for (Object consumedApprovalId : consumedApprovalIdCollection) {
+            consumedApprovalIdStrings.add(String.valueOf(consumedApprovalId));
+        }
+
+        return consumedApprovalIdStrings;
     }
 
     private <T> T callInTenantTransaction(JobResumeId jobResumeId, TransactionCallback<T> transactionCallback) {
         return TenantContext.callWithTenantId(
             jobResumeId.getTenantId(),
             () -> Objects.requireNonNull(transactionOperations.execute(transactionCallback)));
+    }
+
+    private Optional<ApprovalId> parseSignedApprovalId(String token) {
+        ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
+
+        if (approvalTokens == null) {
+            return Optional.empty();
+        }
+
+        Optional<String> innerTokenOptional = approvalTokens.parseSignedToken(token);
+
+        if (innerTokenOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(ApprovalId.parse(innerTokenOptional.get()));
+        } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
+            return Optional.empty();
+        }
     }
 
     private boolean isVerifiedSignedToken(String id) {
@@ -572,19 +673,14 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         return approvalTokens.resolveInnerToken(id);
     }
 
-    private static boolean isStreamingResumeAllowed(Job job) {
-        Map<String, ?> metadata = job.getMetadata();
-
-        return MapUtils.getBoolean(metadata, MetadataConstants.STREAMING_RESUME, false) ||
-            MapUtils.getBoolean(metadata, MetadataConstants.STREAMED_EXECUTION, false);
-    }
-
     private static Map<String, Object> normalizeApprovedBy(
-        @Nullable Map<String, Object> data, @Nullable String approvedBy) {
+        Job job, @Nullable Map<String, Object> data, @Nullable String approvedBy) {
 
         Map<String, Object> resumeData = data == null ? new HashMap<>() : new HashMap<>(data);
 
-        resumeData.remove(APPROVED_BY);
+        if (JobSuspends.isSuspendedForApproval(job)) {
+            resumeData.remove(APPROVED_BY);
+        }
 
         if (approvedBy != null && !approvedBy.isBlank()) {
             resumeData.put(APPROVED_BY, approvedBy);
@@ -608,17 +704,6 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             .increment();
     }
 
-    private void incrementApprovalExpiredCounter(String source) {
-        MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
-
-        if (meterRegistry == null) {
-            return;
-        }
-
-        meterRegistry.counter(APPROVAL_EXPIRED_METRIC_NAME, "source", source)
-            .increment();
-    }
-
     private boolean isSuspendExpired(Job job) {
         Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
 
@@ -626,15 +711,40 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             return false;
         }
 
-        try {
-            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+        Optional<TaskExecution> taskExecutionOptional = taskExecutionService.fetchTaskExecution(taskExecutionResumeId);
 
+        if (taskExecutionOptional.isEmpty()) {
+            log.warn(
+                "Rejected resume for job {}: its suspended task execution {} no longer exists", job.getId(),
+                taskExecutionResumeId);
+
+            return true;
+        }
+
+        TaskExecution taskExecution = taskExecutionOptional.get();
+
+        try {
             Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
 
             return expiresAt != null && expiresAt.isBefore(Instant.now());
-        } catch (RuntimeException runtimeException) {
-            return false;
+        } catch (RuntimeException exception) {
+            log.warn(
+                "Rejected resume for job {}: the suspend expiry of task execution {} is unreadable", job.getId(),
+                taskExecutionResumeId, exception);
+
+            return true;
         }
+    }
+
+    private void incrementApprovalExpiredCounter(String source) {
+        MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
+
+        if (meterRegistry == null) {
+            return;
+        }
+
+        meterRegistry.counter("bytechef_approval_expired", "source", source)
+            .increment();
     }
 
     private void consumeJobResumeId(Job job) {
