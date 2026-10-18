@@ -18,6 +18,7 @@ package com.bytechef.platform.workflow.execution;
 
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.tenant.TenantContext;
+import com.bytechef.tenant.TenantIdValidator;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
@@ -56,7 +57,15 @@ public class ApprovalId implements Serializable {
 
         String[] items = id.split(":");
 
-        return new ApprovalId(items[0], Long.parseLong(items[1]), items[2], Boolean.parseBoolean(items[3]));
+        if (items.length != 4) {
+            throw new IllegalArgumentException("Invalid ApprovalId format");
+        }
+
+        String tenantId = items[0];
+
+        TenantIdValidator.validate(tenantId);
+
+        return new ApprovalId(tenantId, Long.parseLong(items[1]), items[2], Boolean.parseBoolean(items[3]));
     }
 
     public long getJobId() {
