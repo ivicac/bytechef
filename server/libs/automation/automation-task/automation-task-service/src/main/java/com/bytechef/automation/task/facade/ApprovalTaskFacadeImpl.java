@@ -29,6 +29,8 @@ import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.service.ApprovalTaskService;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.platform.audit.AuditData;
+import com.bytechef.platform.audit.Audited;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -43,10 +45,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -88,45 +92,101 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
     @Override
     public ApprovalTask createApprovalTask(ApprovalTask approvalTask) {
-        String innerToken = resolveInnerToken(approvalTask.getJobResumeId());
+        String jobResumeIdString = approvalTask.getJobResumeId();
 
-        approvalTask.setJobResumeId(innerToken);
+        Assert.notNull(jobResumeIdString, "'jobResumeId' must not be null");
 
-        approvalTask.setEnvironment(getEnvironment(innerToken));
+        JobResumeId jobResumeId = approvalTokens.resolveJobResumeId(jobResumeIdString)
+            .orElse(null);
+
+        if (jobResumeId == null) {
+            log.warn("Rejected approval task '{}': its resume token is invalid or expired", approvalTask.getName());
+
+            throw new IllegalArgumentException("Invalid or expired approval token");
+        }
+
+        approvalTask.setEnvironment(getEnvironment(jobResumeId.getJobId()));
 
         return approvalTaskService.create(approvalTask);
     }
 
     @Override
+    @Audited(event = ApprovalTaskAuditEvents.APPROVAL_TASK_CREATED, data = {
+        @AuditData(key = "approvalTaskId", value = "#result?.id"),
+        @AuditData(key = "name", value = "#approvalTask.name")
+    })
+    @PreAuthorize("isTenantAdmin()")
+    public ApprovalTask createManualApprovalTask(ApprovalTask approvalTask) {
+        return approvalTaskService.create(approvalTask);
+    }
+
+    @Override
+    @Audited(event = ApprovalTaskAuditEvents.APPROVAL_TASK_DELETED, data = {
+        @AuditData(key = "approvalTaskId", value = "#id")
+    })
+    @PreAuthorize("isTenantAdmin()")
+    public void deleteApprovalTask(long id) {
+        approvalTaskService.delete(id);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    @Transactional(readOnly = true)
+    public ApprovalTask getApprovalTask(long id) {
+        return approvalTaskService.getApprovalTask(id);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    @Transactional(readOnly = true)
+    public List<ApprovalTask> getApprovalTasks(@Nullable Integer environmentId) {
+        return approvalTaskService.getApprovalTasks(environmentId);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    @Transactional(readOnly = true)
+    public List<ApprovalTask> getApprovalTasks(List<Long> ids) {
+        return approvalTaskService.getApprovalTasks(ids);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
     public List<PendingApproval> getPendingApprovals(@Nullable Integer environmentId) {
         List<PendingApproval> pendingApprovals = new ArrayList<>();
 
         for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, Instant.now())) {
             Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
             Long jobId = job.getId();
 
-            if (jobResumeId == null || jobId == null) {
+            if (jobResumeId == null || jobId == null || !JobSuspends.isAwaitingApproval(job)) {
                 continue;
             }
 
-            // Scope to the requested environment so the banner matches the environment-scoped approval-task inbox
-            // shown beside it. The environment is resolved from the run's project deployment, defaulting to
-            // DEVELOPMENT for runs with no principal-job row.
             if (environmentId != null) {
-                Environment environment = getEnvironment(jobResumeId.toString());
+                Environment environment;
+
+                try {
+                    environment = getEnvironment(jobId);
+                } catch (RuntimeException runtimeException) {
+                    log.warn("Could not resolve the environment of suspended job {}", jobId, runtimeException);
+
+                    continue;
+                }
 
                 if (environment.ordinal() != environmentId) {
                     continue;
                 }
             }
 
-            String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId.toString(), approvalTokens)
+            Instant expiresAt = resolveExpiresAt(job);
+
+            String formUrl = ApprovalFormUrls.buildFormUrl(
+                publicUrl, jobResumeId.toString(), approvalTokens, expiresAt)
                 .orElse(null);
 
             pendingApprovals.add(
-                new PendingApproval(
-                    jobId, resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), resolveExpiresAt(job)));
+                new PendingApproval(jobId, resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), expiresAt));
         }
 
         pendingApprovals.sort(
@@ -134,6 +194,17 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
                 PendingApproval::createdDate, Comparator.nullsLast(Comparator.reverseOrder())));
 
         return pendingApprovals;
+    }
+
+    @Override
+    @Audited(event = ApprovalTaskAuditEvents.APPROVAL_TASK_UPDATED, data = {
+        @AuditData(key = "approvalTaskId", value = "#approvalTask.id"),
+        @AuditData(key = "name", value = "#approvalTask.name"),
+        @AuditData(key = "status", value = "#approvalTask.status")
+    })
+    @PreAuthorize("isTenantAdmin()")
+    public ApprovalTask updateApprovalTask(ApprovalTask approvalTask) {
+        return approvalTaskService.update(approvalTask);
     }
 
     private String resolveWorkflowLabel(Job job) {
@@ -164,34 +235,17 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
         }
     }
 
-    private String resolveInnerToken(String jobResumeIdString) {
-        Assert.notNull(jobResumeIdString, "'jobResumeId' must not be null");
+    private Environment getEnvironment(long jobId) {
+        Optional<Long> projectDeploymentIdOptional = principalJobService.fetchJobPrincipalId(
+            jobId, PlatformType.AUTOMATION);
 
-        return approvalTokens.resolveInnerToken(jobResumeIdString)
-            .orElseThrow(() -> new IllegalArgumentException("Invalid or expired approval token"));
-    }
-
-    private Environment getEnvironment(String jobResumeIdString) {
-        try {
-            JobResumeId jobResumeId = JobResumeId.parse(jobResumeIdString);
-
-            long projectDeploymentId = principalJobService.getJobPrincipalId(
-                jobResumeId.getJobId(), PlatformType.AUTOMATION);
-
-            ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
-
-            return projectDeployment.getEnvironment();
-        } catch (Exception exception) {
-            // A run that is not backed by an automation project deployment (no principal-job row) has no environment
-            // to derive — fall back to DEVELOPMENT per the facade contract instead of failing the approval-task
-            // delivery for that run.
-            if (log.isDebugEnabled()) {
-                log.debug(
-                    "Could not resolve the environment for approval task {}; defaulting to DEVELOPMENT: {}",
-                    jobResumeIdString, exception.getMessage());
-            }
-
+        if (projectDeploymentIdOptional.isEmpty()) {
             return Environment.DEVELOPMENT;
         }
+
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(
+            projectDeploymentIdOptional.get());
+
+        return projectDeployment.getEnvironment();
     }
 }

@@ -18,8 +18,11 @@ package com.bytechef.automation.task.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
@@ -33,12 +36,15 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.service.ApprovalTaskService;
+import com.bytechef.component.definition.ActionContext.Suspend;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
@@ -231,6 +237,57 @@ class ApprovalTaskFacadeTest {
         assertThat(approvalTaskFacade.getPendingApprovals(Environment.PRODUCTION.ordinal())).isEmpty();
     }
 
+    @Test
+    void testGetPendingApprovalsListsOnlyRunsWaitingOnAnApproval() {
+        Job approvalJob = pendingJob(1L, "tokenA", null, Instant.now(), "workflow-a");
+        Job waitJob = pendingJob(2L, "tokenB", null, Instant.now(), "workflow-b", false);
+
+        when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class)))
+            .thenReturn(List.of(approvalJob, waitJob));
+        when(workflowService.getWorkflow("workflow-a")).thenThrow(new IllegalArgumentException("missing"));
+
+        List<PendingApproval> pendingApprovals = createApprovalTaskFacade().getPendingApprovals(null);
+
+        assertThat(pendingApprovals).extracting(PendingApproval::jobId)
+            .containsExactly(1L);
+    }
+
+    @Test
+    void testGetPendingApprovalsSignsTheFormLinkToExpireWithTheApproval() {
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofDays(2));
+
+        Job job = pendingJob(1L, "tokenA", 7L, Instant.now(), "workflow-a");
+
+        TaskExecution suspendedTaskExecution = new TaskExecution();
+
+        suspendedTaskExecution.putMetadata(MetadataConstants.SUSPEND, new Suspend(Map.of(), expiresAt));
+
+        when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class))).thenReturn(List.of(job));
+        when(workflowService.getWorkflow("workflow-a")).thenThrow(new IllegalArgumentException("missing"));
+        when(taskExecutionService.getTaskExecution(7L)).thenReturn(suspendedTaskExecution);
+        when(approvalTokens.toSignedTokenIfConfigured(eq("tokenA"), any(Duration.class)))
+            .thenReturn(Optional.of("v1.signed"));
+
+        List<PendingApproval> pendingApprovals = createApprovalTaskFacade().getPendingApprovals(null);
+
+        assertThat(pendingApprovals).hasSize(1);
+
+        PendingApproval pendingApproval = pendingApprovals.getFirst();
+
+        assertThat(pendingApproval.expiresAt()).isEqualTo(expiresAt);
+        assertThat(pendingApproval.formUrl()).isEqualTo(PUBLIC_URL + "/resume/v1.signed");
+
+        ArgumentCaptor<Duration> ttlArgumentCaptor = ArgumentCaptor.forClass(Duration.class);
+
+        verify(approvalTokens).toSignedTokenIfConfigured(eq("tokenA"), ttlArgumentCaptor.capture());
+        verify(approvalTokens, never()).toSignedTokenIfConfigured("tokenA");
+
+        assertThat(ttlArgumentCaptor.getValue()).isLessThanOrEqualTo(
+            Duration.ofDays(2)
+                .plusHours(1));
+    }
+
     private ApprovalTaskFacadeImpl createApprovalTaskFacade() {
         return new ApprovalTaskFacadeImpl(
             approvalTaskService, approvalTokens, jobService, principalJobService, projectDeploymentService, PUBLIC_URL,
@@ -239,6 +296,13 @@ class ApprovalTaskFacadeTest {
 
     private Job pendingJob(
         long jobId, String jobResumeId, Long taskExecutionResumeId, Instant createdDate, String workflowId) {
+
+        return pendingJob(jobId, jobResumeId, taskExecutionResumeId, createdDate, workflowId, true);
+    }
+
+    private Job pendingJob(
+        long jobId, String jobResumeId, Long taskExecutionResumeId, Instant createdDate, String workflowId,
+        boolean approvalResume) {
 
         Job job = mock(Job.class);
 
@@ -252,6 +316,10 @@ class ApprovalTaskFacadeTest {
 
         lenient().when(job.getMetadata("jobResumeId"))
             .thenReturn(jobResumeId);
+        lenient().when(job.getMetadata(MetadataConstants.APPROVAL_RESUME))
+            .thenReturn(approvalResume);
+        lenient().when(job.getStatus())
+            .thenReturn(Job.Status.STOPPED);
         lenient().doReturn(metadata)
             .when(job)
             .getMetadata();
