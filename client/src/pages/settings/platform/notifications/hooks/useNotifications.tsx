@@ -25,14 +25,168 @@ export type NotificationFormValuesType = {
     type: NotificationTypeEnum;
 };
 
-const formSchema = z.object({
-    name: z.string().min(1, 'Name is required').max(256, 'Name cannot be longer than 256 characters'),
-    notificationEventIds: z.array(z.string()).nonempty('Please select at least one notification event.'),
-    settings: z.record(z.string(), z.any()),
-    type: z.enum(['EMAIL', 'SLACK', 'WEBHOOK'], {
-        message: 'Please select a notification type.',
-    }),
-});
+export const MASKED_VALUE = '********';
+export const MAX_WEBHOOK_HEADERS = 20;
+
+const HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,256}$/;
+const MAX_HEADER_VALUE_LENGTH = 4096;
+const RESERVED_HEADER_NAMES = ['connection', 'content-length', 'content-type', 'host', 'transfer-encoding'];
+const RESERVED_HEADER_PREFIX = 'x-bytechef-';
+
+export const notificationFormSchema = z
+    .object({
+        name: z.string().min(1, 'Name is required').max(256, 'Name cannot be longer than 256 characters'),
+        notificationEventIds: z.array(z.string()).nonempty('Please select at least one notification event.'),
+        settings: z.record(z.string(), z.any()),
+        type: z.enum(['EMAIL', 'SLACK', 'WEBHOOK'], {
+            message: 'Please select a notification type.',
+        }),
+    })
+    .superRefine(({settings, type}, context) => {
+        if (type === 'SLACK') {
+            validateUrlSetting({
+                context,
+                invalidMessage: 'Enter a valid Slack webhook URL.',
+                requiredMessage: 'Slack webhook URL is required.',
+                settingKey: 'slackWebhookUrl',
+                value: settings.slackWebhookUrl,
+            });
+        } else if (type === 'WEBHOOK') {
+            validateUrlSetting({
+                context,
+                invalidMessage: 'Enter a valid http or https URL.',
+                requiredMessage: 'Webhook URL is required.',
+                settingKey: 'webhook',
+                value: settings.webhook,
+            });
+
+            validateWebhookHeaders(settings.webhookHeaders, context);
+        }
+    });
+
+interface ValidateUrlSettingPropsI {
+    context: z.RefinementCtx;
+    invalidMessage: string;
+    requiredMessage: string;
+    settingKey: string;
+    value: unknown;
+}
+
+function validateWebhookHeaders(webhookHeaders: unknown, context: z.RefinementCtx) {
+    if (!Array.isArray(webhookHeaders)) {
+        return;
+    }
+
+    if (webhookHeaders.length > MAX_WEBHOOK_HEADERS) {
+        context.addIssue({
+            code: 'custom',
+            message: `At most ${MAX_WEBHOOK_HEADERS} headers are allowed.`,
+            path: ['settings', 'webhookHeaders'],
+        });
+    }
+
+    const seenNames = new Set<string>();
+
+    webhookHeaders.forEach((header: {name?: string; value?: string}, index) => {
+        const name = (header?.name ?? '').trim();
+        const lowerCaseName = name.toLowerCase();
+        const namePath = ['settings', 'webhookHeaders', index, 'name'];
+
+        if (!HEADER_NAME_PATTERN.test(name)) {
+            context.addIssue({code: 'custom', message: 'Enter a valid header name.', path: namePath});
+        } else if (RESERVED_HEADER_NAMES.includes(lowerCaseName) || lowerCaseName.startsWith(RESERVED_HEADER_PREFIX)) {
+            context.addIssue({code: 'custom', message: 'This header name is reserved.', path: namePath});
+        } else if (seenNames.has(lowerCaseName)) {
+            context.addIssue({code: 'custom', message: 'Header names must be unique.', path: namePath});
+        }
+
+        seenNames.add(lowerCaseName);
+
+        if (!header?.value) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Enter a value',
+                path: ['settings', 'webhookHeaders', index, 'value'],
+            });
+        }
+
+        if ((header?.value ?? '').length > MAX_HEADER_VALUE_LENGTH) {
+            context.addIssue({
+                code: 'custom',
+                message: `Header value cannot be longer than ${MAX_HEADER_VALUE_LENGTH} characters.`,
+                path: ['settings', 'webhookHeaders', index, 'value'],
+            });
+        }
+    });
+}
+
+function validateUrlSetting({context, invalidMessage, requiredMessage, settingKey, value}: ValidateUrlSettingPropsI) {
+    if (value === MASKED_VALUE) {
+        return;
+    }
+
+    if (typeof value !== 'string' || value.trim() === '') {
+        context.addIssue({
+            code: 'custom',
+            message: requiredMessage,
+            path: ['settings', settingKey],
+        });
+
+        return;
+    }
+
+    if (!z.url({protocol: /^https?$/}).safeParse(value.trim()).success) {
+        context.addIssue({
+            code: 'custom',
+            message: invalidMessage,
+            path: ['settings', settingKey],
+        });
+    }
+}
+
+export function normalizeWebhookUrl(url: unknown): string {
+    if (typeof url !== 'string') {
+        return '';
+    }
+
+    const strippedUrl = url.trim();
+    const urlMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]*)([\s\S]*)$/.exec(strippedUrl);
+
+    if (!urlMatch) {
+        return strippedUrl;
+    }
+
+    const [, scheme, authority, pathQueryAndFragment] = urlMatch;
+    const lowerCaseScheme = scheme.toLowerCase();
+    const userInfoEnd = authority.lastIndexOf('@');
+    const userInfo = authority.slice(0, userInfoEnd + 1);
+    const hostAndPortMatch = /^(\[[^\]]*\]|[^:]*)(?::(\d+))?$/.exec(authority.slice(userInfoEnd + 1));
+
+    if (!hostAndPortMatch || !hostAndPortMatch[1]) {
+        return strippedUrl;
+    }
+
+    const [, host, port] = hostAndPortMatch;
+    const isDefaultPort =
+        (lowerCaseScheme === 'http' && port === '80') || (lowerCaseScheme === 'https' && port === '443');
+    const portSuffix = port && !isDefaultPort ? `:${port}` : '';
+
+    return `${lowerCaseScheme}://${userInfo}${host.toLowerCase()}${portSuffix}${pathQueryAndFragment}`;
+}
+
+function trimUrlSettings(settings: Record<string, unknown>): Notification['settings'] {
+    const trimmedSettings: Record<string, unknown> = {...settings};
+
+    for (const settingKey of ['slackWebhookUrl', 'webhook']) {
+        const value = trimmedSettings[settingKey];
+
+        if (typeof value === 'string') {
+            trimmedSettings[settingKey] = value.trim();
+        }
+    }
+
+    return trimmedSettings as Notification['settings'];
+}
 
 interface BuildNotificationPayloadPropsI {
     formValues: NotificationFormValuesType;
