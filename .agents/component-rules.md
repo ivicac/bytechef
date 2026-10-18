@@ -47,7 +47,7 @@ passes the list straight through:
 
 - `AbstractAiAgentChatAction` (the agent action itself — chat, streaming chat, realtime chat).
 - `AiAgentUtilsComponentHandler`, which builds the callback for the **approval gate** tool
-  (`AiAgentUtilsApprovalGateTool` / `ApprovalGateToolCallback`).
+  (`AiAgentUtilsApprovalGate` / `ApprovalGateToolCallback`).
 - `AiAgentUtilsTaskTool`, the **subagent task tool** — a subagent's own tools go through the exact
   same wrapping, so a rule governs a subagent's tool calls identically to the parent agent's.
 
@@ -89,7 +89,7 @@ would silently remove rule enforcement from every approved-and-resumed tool call
 
 The flip side is why `ClusterElementToolCallbacks.build()` refuses to wrap a callback that is
 already governed (`DelegatingToolCallback.unwrap(toolCallback) instanceof
-RuleEnforcingToolCallback`). `AiAgentUtilsApprovalGateTool` declares the **gate itself** as a TOOLS
+RuleEnforcingToolCallback`). `AiAgentUtilsApprovalGate` declares the **gate itself** as a TOOLS
 cluster element, so the gate's element passes through `build()` a second time — once from inside the
 gate, producing `ApprovalGateToolCallback(RuleEnforcingToolCallback(tool))`, and again from the
 agent's own TOOLS loop. Wrapping that second time produced
@@ -99,7 +99,7 @@ and the approved re-execution raised a second approval — an approval loop with
 (in CE the enforcer list is empty and `build` short-circuits before wrapping). It also
 double-evaluated every rule on a gated call. The skip fixes both; pinned by
 `ClusterElementToolCallbacksTest.testAnAlreadyGovernedCallbackIsNotWrappedASecondTime` and
-`AbstractAiAgentChatActionResumeGateTest.testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain`.
+`AbstractAiAgentChatActionTest$ResumeGate.testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain`.
 
 ## Precedence and the approval protocol
 
