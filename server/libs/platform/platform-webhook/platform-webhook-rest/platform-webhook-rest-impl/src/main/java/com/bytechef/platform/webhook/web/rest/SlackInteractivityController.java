@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -54,11 +55,14 @@ public final class SlackInteractivityController {
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public SlackInteractivityController(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade,
+        ConnectionService connectionService, JobResumeFacade jobResumeFacade, JobService jobService,
         ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
+        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+
         this.slackInteractivityHandler = new SlackInteractivityHandler(
-            connectionService, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(), RestClient.create());
+            new ApprovalResolutionLookup(jobService, approvalTokens), connectionService, jobResumeFacade,
+            approvalTokens, RestClient.create());
     }
 
     /**

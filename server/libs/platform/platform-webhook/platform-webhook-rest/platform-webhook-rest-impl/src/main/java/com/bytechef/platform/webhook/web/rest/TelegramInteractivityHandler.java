@@ -35,6 +35,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Handles Telegram {@code callback_query} webhooks that resolve an approval in place. The Telegram approval channel
@@ -50,6 +51,11 @@ public class TelegramInteractivityHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TelegramInteractivityHandler.class);
 
+    private static final String NO_LONGER_AVAILABLE_TEXT = "This approval is no longer available.";
+    private static final String NOT_APPLIED_TEXT = "This approval could not be applied here — open the approval form.";
+    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
+
+    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final ApprovalShortTokenStore approvalShortTokenStore;
     private final ConnectionService connectionService;
     private final JobResumeFacade jobResumeFacade;
@@ -58,9 +64,11 @@ public class TelegramInteractivityHandler {
 
     @SuppressFBWarnings("EI")
     public TelegramInteractivityHandler(
-        ApprovalShortTokenStore approvalShortTokenStore, ConnectionService connectionService,
-        JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens, RestClient restClient) {
+        ApprovalResolutionLookup approvalResolutionLookup, ApprovalShortTokenStore approvalShortTokenStore,
+        ConnectionService connectionService, JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens,
+        RestClient restClient) {
 
+        this.approvalResolutionLookup = approvalResolutionLookup;
         this.approvalShortTokenStore = approvalShortTokenStore;
         this.connectionService = connectionService;
         this.jobResumeFacade = jobResumeFacade;
@@ -101,14 +109,23 @@ public class TelegramInteractivityHandler {
         String resumeId = approvalShortTokenStore.resolve(approvalButtonPayload.shortId());
 
         if (resumeId == null) {
-            // Unknown / expired short id (e.g. after a coordinator restart) — the message also carries the hosted-form
-            // link, so the reviewer can still resolve there. Nothing actionable here.
+            log.info(
+                "Telegram approval callback for an unknown or expired short id {}", approvalButtonPayload.shortId());
+
+            answerNoLongerAvailable(callbackQuery, secretTokenHeader);
+
             return Result.IGNORED;
         }
 
         String tenantId = resolveTenantId(resumeId);
 
         if (tenantId == null) {
+            log.warn(
+                "Telegram approval callback for short id {} carries an unverifiable resume id",
+                approvalButtonPayload.shortId());
+
+            answerNoLongerAvailable(callbackQuery, secretTokenHeader);
+
             return Result.IGNORED;
         }
 
@@ -123,12 +140,30 @@ public class TelegramInteractivityHandler {
 
         String userName = extractUserName(callbackQuery);
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId,
-            () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        JobResumeOutcome outcome;
 
-        answerCallback(connection, callbackQuery);
-        editMessage(connection, callbackQuery, outcome, approved, userName);
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId,
+                () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Telegram approval callback for short id {} could not be applied", approvalButtonPayload.shortId(),
+                runtimeException);
+
+            answerCallback(connection, callbackQuery, NOT_APPLIED_TEXT);
+
+            return Result.HANDLED;
+        }
+
+        if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
+            answerCallback(connection, callbackQuery, NOT_YET_SUSPENDED_TEXT);
+
+            return Result.HANDLED;
+        }
+
+        answerCallback(connection, callbackQuery, null);
+        editMessage(connection, callbackQuery, resumeId, outcome, approved, userName);
 
         return Result.HANDLED;
     }
@@ -184,19 +219,33 @@ public class TelegramInteractivityHandler {
         return null;
     }
 
-    private void answerCallback(Connection connection, Map<String, ?> callbackQuery) {
+    private void answerNoLongerAvailable(Map<String, ?> callbackQuery, @Nullable String secretTokenHeader) {
+        Connection connection = findConnection(secretTokenHeader);
+
+        if (connection == null) {
+            return;
+        }
+
+        answerCallback(connection, callbackQuery, NO_LONGER_AVAILABLE_TEXT);
+    }
+
+    private void answerCallback(Connection connection, Map<String, ?> callbackQuery, @Nullable String text) {
         Object callbackQueryId = callbackQuery.get("id");
 
         if (callbackQueryId == null) {
             return;
         }
 
-        callTelegram(connection, "answerCallbackQuery", Map.of("callback_query_id", callbackQueryId));
+        Map<String, Object> body = text == null
+            ? Map.of("callback_query_id", callbackQueryId)
+            : Map.of("callback_query_id", callbackQueryId, "text", text);
+
+        callTelegram(connection, "answerCallbackQuery", body);
     }
 
     private void editMessage(
-        Connection connection, Map<String, ?> callbackQuery, JobResumeOutcome outcome, boolean approved,
-        @Nullable String userName) {
+        Connection connection, Map<String, ?> callbackQuery, String resumeId, JobResumeOutcome outcome,
+        boolean approved, @Nullable String userName) {
 
         Map<String, ?> message = asMap(callbackQuery.get("message"));
 
@@ -216,7 +265,11 @@ public class TelegramInteractivityHandler {
 
         String text = switch (outcome) {
             case OK -> (approved ? "✅ Approved" : "🚫 Discarded") + by + ".";
-            case GONE -> "⌛ This approval expired before it was resolved.";
+            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
+                case RESOLVED -> "ℹ️ This approval was already resolved.";
+                case EXPIRED -> "⌛ This approval expired before it was resolved.";
+                case UNAVAILABLE -> "⚠️ This approval is no longer available.";
+            };
             case INVALID_ID -> "⚠️ This approval is no longer available.";
             case JOB_FAILED -> "❌ The workflow failed before this approval could be applied.";
             case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> "⚠️ This approval could not be applied yet.";
@@ -245,8 +298,13 @@ public class TelegramInteractivityHandler {
                 .body(body)
                 .retrieve()
                 .toBodilessEntity();
+        } catch (RestClientResponseException restClientResponseException) {
+            log.warn(
+                "Telegram {} call failed with status {}", method, restClientResponseException.getStatusCode());
         } catch (Exception exception) {
-            log.warn("Telegram {} call failed: {}", method, exception.getMessage());
+            Class<? extends Exception> exceptionClass = exception.getClass();
+
+            log.warn("Telegram {} call failed: {}", method, exceptionClass.getName());
         }
     }
 

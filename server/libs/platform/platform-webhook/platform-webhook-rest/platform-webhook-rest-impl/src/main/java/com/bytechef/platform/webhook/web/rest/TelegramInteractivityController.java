@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -53,11 +54,14 @@ public final class TelegramInteractivityController {
     })
     public TelegramInteractivityController(
         ApprovalShortTokenStore approvalShortTokenStore, ConnectionService connectionService,
-        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+        JobResumeFacade jobResumeFacade, JobService jobService,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+
+        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
 
         this.telegramInteractivityHandler = new TelegramInteractivityHandler(
-            approvalShortTokenStore, connectionService, jobResumeFacade,
-            approvalTokensObjectProvider.getIfAvailable(), RestClient.create());
+            new ApprovalResolutionLookup(jobService, approvalTokens), approvalShortTokenStore, connectionService,
+            jobResumeFacade, approvalTokens, RestClient.create());
     }
 
     /**

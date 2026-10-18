@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.webhook.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -25,11 +26,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.webhook.web.rest.ApprovalResolutionLookup.Resolution;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -45,6 +51,12 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
+import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -55,6 +67,7 @@ class SlackInteractivityHandlerTest {
 
     private static final String SIGNING_SECRET = "test-signing-secret";
 
+    private final ApprovalResolutionLookup approvalResolutionLookup = mock(ApprovalResolutionLookup.class);
     private final ConnectionService connectionService = mock(ConnectionService.class);
     private final JobResumeFacade jobResumeFacade = mock(JobResumeFacade.class);
 
@@ -62,12 +75,9 @@ class SlackInteractivityHandlerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        // The message rewrite through response_url is best-effort; the mock RestClient throws on use in this test
-        // setup, exercising exactly that tolerance.
-        // ApprovalTokens null -> the button value is treated as the raw inner token (unconfigured-signer path);
-        // the tests carry raw JobResumeId strings as the value.
         slackInteractivityHandler = new SlackInteractivityHandler(
-            connectionService, jobResumeFacade, null, RestClient.create("http://localhost:1"));
+            approvalResolutionLookup, connectionService, jobResumeFacade, null,
+            RestClient.create("http://localhost:1"));
 
         Connection connection = new Connection();
 
@@ -90,7 +100,6 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
 
-        // The Slack user is signature-verified, so it flows through as the trusted resolver identity.
         verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane"));
     }
 
@@ -137,8 +146,6 @@ class SlackInteractivityHandlerTest {
 
     @Test
     void testVerifiedDiscardWithoutModalResolvesImmediately() throws Exception {
-        // No trigger id and the test connection carries no bot token, so no modal can open — the discard must still
-        // resolve right away rather than being silently lost.
         String rawBody = rawBody(SlackInteractivityHandler.ACTION_DISCARD);
         String timestamp = String.valueOf(Instant.now()
             .getEpochSecond());
@@ -152,6 +159,96 @@ class SlackInteractivityHandlerTest {
         assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
 
         verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", false)), eq("@jane"));
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void testRejectedDiscardModalIsWarnedAboutAndDiscardsWithoutComment(CapturedOutput capturedOutput)
+        throws Exception {
+
+        RestClient.Builder restClientBuilder = RestClient.builder();
+
+        MockRestServiceServer mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder)
+            .build();
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            approvalResolutionLookup, connectionService, jobResumeFacade, null, restClientBuilder.build());
+
+        Connection connection = new Connection();
+
+        connection.setParameters(Map.of("signingSecret", SIGNING_SECRET, "access_token", "xoxb-token"));
+
+        when(connectionService.getConnections(eq("slack"), anyInt(), any())).thenReturn(List.of(connection));
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", false)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.OK);
+
+        mockRestServiceServer.expect(requestTo("https://slack.com/api/views.open"))
+            .andRespond(withSuccess("{\"ok\":false,\"error\":\"missing_scope\"}", MediaType.APPLICATION_JSON));
+        mockRestServiceServer.expect(requestTo("https://hooks.slack.invalid/actions/x"))
+            .andRespond(withSuccess());
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_DISCARD, defaultResumeId(), "trigger-1");
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        SlackInteractivityHandler.Result result = handler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+        assertThat(capturedOutput.getAll()).contains("Could not open the Slack discard-comment modal")
+            .contains("missing_scope");
+
+        verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", false)), eq("@jane"));
+
+        mockRestServiceServer.verify();
+    }
+
+    @Test
+    void testGoneClickOnAResolvedApprovalSaysItWasAlreadyResolved() throws Exception {
+        assertGoneClickRewritesTheMessageWith(Resolution.RESOLVED,
+            ":information_source: This approval was already resolved.");
+    }
+
+    @Test
+    void testGoneClickOnAnExpiredApprovalSaysItExpired() throws Exception {
+        assertGoneClickRewritesTheMessageWith(Resolution.EXPIRED,
+            ":hourglass: This approval expired before it was resolved.");
+    }
+
+    @Test
+    void testGoneClickOnACancelledApprovalSaysItIsNoLongerAvailable() throws Exception {
+        assertGoneClickRewritesTheMessageWith(
+            Resolution.UNAVAILABLE, ":warning: This approval is no longer available.");
+    }
+
+    private void assertGoneClickRewritesTheMessageWith(Resolution resolution, String expectedText)
+        throws Exception {
+
+        RestClient.Builder restClientBuilder = RestClient.builder();
+
+        MockRestServiceServer mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder)
+            .build();
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            approvalResolutionLookup, connectionService, jobResumeFacade, null, restClientBuilder.build());
+
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.GONE);
+        when(approvalResolutionLookup.describe(defaultResumeId())).thenReturn(resolution);
+
+        mockRestServiceServer.expect(requestTo("https://hooks.slack.invalid/actions/x"))
+            .andExpect(
+                content().json(
+                    JsonUtils.write(Map.of("replace_original", true, "text", expectedText)), JsonCompareMode.STRICT))
+            .andRespond(withSuccess());
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        handler.handle(rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        mockRestServiceServer.verify();
     }
 
     @Test
@@ -198,7 +295,8 @@ class SlackInteractivityHandlerTest {
         when(approvalTokens.resolveInnerToken(signedValue)).thenReturn(java.util.Optional.of(innerToken));
 
         SlackInteractivityHandler handler = new SlackInteractivityHandler(
-            connectionService, jobResumeFacade, approvalTokens, RestClient.create("http://localhost:1"));
+            approvalResolutionLookup, connectionService, jobResumeFacade, approvalTokens,
+            RestClient.create("http://localhost:1"));
 
         String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE, signedValue);
         String timestamp = String.valueOf(Instant.now()
@@ -212,28 +310,127 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
 
-        // resumeJob still receives the ORIGINAL (signed) value; the facade re-resolves it.
         verify(jobResumeFacade).resumeJob(eq(signedValue), eq(Map.of("approved", true)), eq("@jane"));
     }
 
-    private static String rawBody(String actionId) {
-        // A JobResumeId is base64("tenantId:jobId:uuid"); the handler parses it to anchor the tenant.
-        String resumeId = EncodingUtils.base64EncodeToString(
-            "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(StandardCharsets.UTF_8));
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void testUnverifiableSignedTokenIsLoggedAndIgnoredWithoutAConnectionLookup(CapturedOutput capturedOutput)
+        throws Exception {
 
-        return rawBody(actionId, resumeId);
+        String tamperedValue = "v1.9999999999.forged-token.signature";
+
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.resolveInnerToken(tamperedValue)).thenReturn(java.util.Optional.empty());
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            approvalResolutionLookup, connectionService, jobResumeFacade, approvalTokens,
+            RestClient.create("http://localhost:1"));
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE, tamperedValue);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        SlackInteractivityHandler.Result result = handler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.IGNORED, result);
+        assertThat(capturedOutput.getAll()).contains("unverifiable or expired resume id v1.999999999…");
+
+        verify(connectionService, never()).getConnections(anyString(), anyInt(), any());
+        verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
+    }
+
+    @Test
+    void testNotYetSuspendedLeavesTheCardInPlaceAndRepliesEphemerally() throws Exception {
+        RestClient.Builder restClientBuilder = RestClient.builder();
+
+        MockRestServiceServer mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder)
+            .build();
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            approvalResolutionLookup, connectionService, jobResumeFacade, null, restClientBuilder.build());
+
+        mockRestServiceServer.expect(requestTo("https://hooks.slack.invalid/actions/x"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(
+                content().json(
+                    "{\"response_type\":\"ephemeral\",\"replace_original\":false,"
+                        + "\"text\":\"Still preparing — try again in a moment.\"}",
+                    JsonCompareMode.STRICT))
+            .andRespond(withSuccess());
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.NOT_YET_SUSPENDED);
+
+        SlackInteractivityHandler.Result result = handler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+
+        mockRestServiceServer.verify();
+    }
+
+    @Test
+    void testRejectedResolutionRepliesEphemerallyInsteadOfFailing() throws Exception {
+        RestClient.Builder restClientBuilder = RestClient.builder();
+
+        MockRestServiceServer mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder)
+            .build();
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            approvalResolutionLookup, connectionService, jobResumeFacade, null, restClientBuilder.build());
+
+        mockRestServiceServer.expect(requestTo("https://hooks.slack.invalid/actions/x"))
+            .andExpect(
+                content().json(
+                    "{\"response_type\":\"ephemeral\",\"replace_original\":false,"
+                        + "\"text\":\":warning: This approval could not be applied here — open the approval form.\"}",
+                    JsonCompareMode.STRICT))
+            .andRespond(withSuccess());
+
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane")))
+            .thenThrow(new IllegalArgumentException("'Amount' is required"));
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        SlackInteractivityHandler.Result result = handler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+
+        mockRestServiceServer.verify();
+    }
+
+    private static String rawBody(String actionId) {
+        return rawBody(actionId, defaultResumeId());
     }
 
     private static String rawBody(String actionId, String value) {
-        // Built via concatenation rather than String.formatted(...): the embedded newline between the two JSON
-        // fragments is part of the signed payload byte-for-byte, and a %s-based format string containing a literal
-        // \n (instead of %n) trips SpotBugs' VA_FORMAT_STRING_USES_NEWLINE. Concatenation keeps the exact same bytes
-        // without going through a format-string API.
-        String payload = "{\"type\":\"block_actions\",\"user\":{\"username\":\"jane\"},\"response_url\":"
+        return rawBody(actionId, value, null);
+    }
+
+    private static String rawBody(String actionId, String value, String triggerId) {
+        String triggerIdField = triggerId == null ? "" : "\"trigger_id\":\"" + triggerId + "\",";
+
+        String payload = "{\"type\":\"block_actions\"," + triggerIdField
+            + "\"user\":{\"username\":\"jane\"},\"response_url\":"
             + "\"https://hooks.slack.invalid/actions/x\",\n"
             + " \"actions\":[{\"action_id\":\"" + actionId + "\",\"value\":\"" + value + "\"}]}";
 
         return "payload=" + URLEncoder.encode(payload, StandardCharsets.UTF_8);
+    }
+
+    private static String defaultResumeId() {
+        return EncodingUtils.base64EncodeToString(
+            "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(StandardCharsets.UTF_8));
     }
 
     private static String viewSubmissionBody(String callbackId, String comment) {

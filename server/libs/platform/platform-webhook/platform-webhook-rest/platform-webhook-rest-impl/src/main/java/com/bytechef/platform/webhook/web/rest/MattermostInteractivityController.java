@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
@@ -48,6 +49,11 @@ public final class MattermostInteractivityController {
 
     private static final Logger log = LoggerFactory.getLogger(MattermostInteractivityController.class);
 
+    private static final String NOT_APPLIED_TEXT =
+        ":warning: This approval could not be applied here — open the approval form.";
+    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
+
+    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
 
@@ -58,10 +64,12 @@ public final class MattermostInteractivityController {
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public MattermostInteractivityController(
-        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+        JobResumeFacade jobResumeFacade, JobService jobService,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+        this.approvalResolutionLookup = new ApprovalResolutionLookup(jobService, approvalTokens);
     }
 
     @SuppressFBWarnings(
@@ -90,12 +98,28 @@ public final class MattermostInteractivityController {
             return ResponseEntity.ok(update("This approval is no longer available."));
         }
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved)));
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved)));
+        } catch (RuntimeException runtimeException) {
+            log.warn("Mattermost approval callback could not be applied", runtimeException);
+
+            return ResponseEntity.ok(Map.of("ephemeral_text", NOT_APPLIED_TEXT));
+        }
+
+        if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
+            return ResponseEntity.ok(Map.of("ephemeral_text", NOT_YET_SUSPENDED_TEXT));
+        }
 
         return ResponseEntity.ok(update(switch (outcome) {
             case OK -> approved ? ":white_check_mark: Approved." : ":no_entry_sign: Discarded.";
-            case GONE -> ":hourglass: This approval expired before it was resolved.";
+            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
+                case RESOLVED -> ":information_source: This approval was already resolved.";
+                case EXPIRED -> ":hourglass: This approval expired before it was resolved.";
+                case UNAVAILABLE -> ":warning: This approval is no longer available.";
+            };
             case INVALID_ID -> ":warning: This approval is no longer available.";
             case JOB_FAILED -> ":x: The workflow failed before this approval could be applied.";
             case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> ":warning: This approval could not be applied yet.";

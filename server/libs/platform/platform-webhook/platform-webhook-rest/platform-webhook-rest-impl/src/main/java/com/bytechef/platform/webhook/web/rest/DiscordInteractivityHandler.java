@@ -33,6 +33,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,18 +54,26 @@ public class DiscordInteractivityHandler {
     private static final byte[] ED25519_DER_PREFIX = HexFormat.of()
         .parseHex("302a300506032b6570032100");
 
+    private static final int EPHEMERAL_FLAG = 64;
+
     private static final Logger log = LoggerFactory.getLogger(DiscordInteractivityHandler.class);
 
+    private static final String NOT_APPLIED_TEXT = "This approval could not be applied here — open the approval form.";
+    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
+
+    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final ApprovalShortTokenStore approvalShortTokenStore;
+    private final AtomicBoolean invalidPublicKeyWarned = new AtomicBoolean();
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
     private final @Nullable String publicKeyHex;
 
     @SuppressFBWarnings("EI")
     public DiscordInteractivityHandler(
-        ApprovalShortTokenStore approvalShortTokenStore, JobResumeFacade jobResumeFacade,
-        @Nullable ApprovalTokens approvalTokens, @Nullable String publicKeyHex) {
+        ApprovalResolutionLookup approvalResolutionLookup, ApprovalShortTokenStore approvalShortTokenStore,
+        JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens, @Nullable String publicKeyHex) {
 
+        this.approvalResolutionLookup = approvalResolutionLookup;
         this.approvalShortTokenStore = approvalShortTokenStore;
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokens;
@@ -140,15 +149,33 @@ public class DiscordInteractivityHandler {
 
         String userName = extractUserName(payload);
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId,
-            () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId,
+                () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Discord approval interaction for short id {} could not be applied", approvalButtonPayload.shortId(),
+                runtimeException);
+
+            return new Response(200, ephemeralReply(NOT_APPLIED_TEXT));
+        }
+
+        if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
+            return new Response(200, ephemeralReply(NOT_YET_SUSPENDED_TEXT));
+        }
 
         String by = userName == null ? "" : " by @" + userName;
 
         String text = switch (outcome) {
             case OK -> (approved ? "✅ Approved" : "🚫 Discarded") + by + ".";
-            case GONE -> "⌛ This approval expired before it was resolved.";
+            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
+                case RESOLVED -> "ℹ️ This approval was already resolved.";
+                case EXPIRED -> "⌛ This approval expired before it was resolved.";
+                case UNAVAILABLE -> "⚠️ This approval is no longer available.";
+            };
             case INVALID_ID -> "⚠️ This approval is no longer available.";
             case JOB_FAILED -> "❌ The workflow failed before this approval could be applied.";
             case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> "⚠️ This approval could not be applied yet.";
@@ -158,22 +185,13 @@ public class DiscordInteractivityHandler {
     }
 
     private boolean verifySignature(String signatureHex, String timestamp, String body) {
-        if (publicKeyHex == null || publicKeyHex.isBlank()) {
+        PublicKey publicKey = resolvePublicKey();
+
+        if (publicKey == null) {
             return false;
         }
 
         try {
-            byte[] publicKeyBytes = HexFormat.of()
-                .parseHex(publicKeyHex.trim());
-
-            byte[] der = new byte[ED25519_DER_PREFIX.length + publicKeyBytes.length];
-
-            System.arraycopy(ED25519_DER_PREFIX, 0, der, 0, ED25519_DER_PREFIX.length);
-            System.arraycopy(publicKeyBytes, 0, der, ED25519_DER_PREFIX.length, publicKeyBytes.length);
-
-            PublicKey publicKey = KeyFactory.getInstance("Ed25519")
-                .generatePublic(new X509EncodedKeySpec(der));
-
             Signature signature = Signature.getInstance("Ed25519");
 
             signature.initVerify(publicKey);
@@ -187,6 +205,43 @@ public class DiscordInteractivityHandler {
             }
 
             return false;
+        }
+    }
+
+    private @Nullable PublicKey resolvePublicKey() {
+        if (publicKeyHex == null || publicKeyHex.isBlank()) {
+            warnInvalidPublicKeyOnce("Rejecting Discord interactions: no Discord application public key is configured");
+
+            return null;
+        }
+
+        try {
+            HexFormat hexFormat = HexFormat.of();
+
+            byte[] publicKeyBytes = hexFormat.parseHex(publicKeyHex.trim());
+
+            byte[] der = new byte[ED25519_DER_PREFIX.length + publicKeyBytes.length];
+
+            System.arraycopy(ED25519_DER_PREFIX, 0, der, 0, ED25519_DER_PREFIX.length);
+            System.arraycopy(publicKeyBytes, 0, der, ED25519_DER_PREFIX.length, publicKeyBytes.length);
+
+            KeyFactory keyFactory = KeyFactory.getInstance("Ed25519");
+
+            return keyFactory.generatePublic(new X509EncodedKeySpec(der));
+        } catch (Exception exception) {
+            Class<? extends Exception> exceptionClass = exception.getClass();
+
+            warnInvalidPublicKeyOnce(
+                "Rejecting Discord interactions: the configured Discord application public key is not a valid " +
+                    "hex-encoded Ed25519 key (" + exceptionClass.getSimpleName() + ")");
+
+            return null;
+        }
+    }
+
+    private void warnInvalidPublicKeyOnce(String message) {
+        if (invalidPublicKeyWarned.compareAndSet(false, true)) {
+            log.warn(message);
         }
     }
 
@@ -206,6 +261,10 @@ public class DiscordInteractivityHandler {
         } catch (Exception exception) {
             return null;
         }
+    }
+
+    private static Map<String, Object> ephemeralReply(String content) {
+        return Map.of("type", 4, "data", Map.of("content", content, "flags", EPHEMERAL_FLAG));
     }
 
     private static Map<String, Object> updateMessage(String content) {

@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClient;
 
 /**
  * Public endpoint for WhatsApp Cloud API webhooks resolving approvals in place — the Meta app's webhook Callback URL
@@ -59,15 +61,19 @@ public final class WhatsAppInteractivityController {
     })
     public WhatsAppInteractivityController(
         ApplicationProperties applicationProperties, ConnectionService connectionService,
-        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+        JobResumeFacade jobResumeFacade, JobService jobService,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
         ApplicationProperties.Webhook webhook = applicationProperties.getWebhook();
 
         ApplicationProperties.Webhook.Whatsapp whatsapp = webhook.getWhatsapp();
 
+        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+
         this.verifyToken = whatsapp.getVerifyToken();
         this.whatsAppInteractivityHandler = new WhatsAppInteractivityHandler(
-            connectionService, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable());
+            new ApprovalResolutionLookup(jobService, approvalTokens), connectionService, jobResumeFacade,
+            approvalTokens, RestClient.create());
     }
 
     /**
