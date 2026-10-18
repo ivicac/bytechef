@@ -625,7 +625,8 @@ class SseStreamBridgeRegistryTest {
         registerInTenant(TENANT_B, tenantBSseStreamBridge);
 
         sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_DATA, "card"));
-        sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
+        sseStreamBridgeRegistry
+            .onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
 
         verify(tenantBSseStreamBridge).onEvent("card");
         verify(tenantBSseStreamBridge).onSuspend();
@@ -640,7 +641,8 @@ class SseStreamBridgeRegistryTest {
 
     @Test
     void testRegisterForResumeIgnoresAStoppedStatusSeenInAnotherTenant() {
-        sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
+        sseStreamBridgeRegistry
+            .onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
 
         TenantContext.runWithTenantId(
             TENANT_A, () -> sseStreamBridgeRegistry.registerForResume(JOB_ID, sseStreamBridge));
@@ -654,10 +656,10 @@ class SseStreamBridgeRegistryTest {
     @Test
     void testAnUndeliveredAskUserQuestionEventResumesTheJobInTheTenantOfTheEvent() {
         JobResumeFacade jobResumeFacade = mock(JobResumeFacade.class);
-        AtomicReference<String> resumeTenantId = new AtomicReference<>();
+        CompletableFuture<String> resumeTenantId = new CompletableFuture<>();
 
         when(jobResumeFacade.resumeExpiredJob("resume-id")).thenAnswer(invocation -> {
-            resumeTenantId.set(TenantContext.getCurrentTenantId());
+            resumeTenantId.complete(TenantContext.getCurrentTenantId());
 
             return JobResumeOutcome.OK;
         });
@@ -668,9 +670,8 @@ class SseStreamBridgeRegistryTest {
         registry.onSseStreamEvent(
             tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_DATA, questionEvent("http://localhost/resume/resume-id")));
 
-        verify(jobResumeFacade, timeout(5000)).resumeExpiredJob("resume-id");
-
-        assertThat(resumeTenantId.get()).isEqualTo(TENANT_B);
+        assertThat(resumeTenantId).succeedsWithin(Duration.ofSeconds(5))
+            .isEqualTo(TENANT_B);
     }
 
     private void sendData(Object payload) {
