@@ -72,6 +72,38 @@ describe('useAiAgentTools', () => {
         expect(toolGroup.channelLabels).toEqual(['slack']);
     });
 
+    it("reads a gate's tools and channels from extensions, the shape of a workflow loaded from the server", () => {
+        useWorkflowEditorStoreMock.mockImplementation((selector: (state: unknown) => unknown) =>
+            selector({
+                rootClusterElementNodeData: {
+                    clusterElements: {
+                        tools: [
+                            {
+                                extensions: {
+                                    clusterElements: {
+                                        approvalChannels: [{name: 'slack_1', type: 'slack/v1/approvalChannel'}],
+                                        tools: [{name: 'deleteRecord_2', type: 'airtable/v1/deleteRecord'}],
+                                    },
+                                },
+                                name: 'approvalGateTool_3',
+                                parameters: {name: 'Loaded'},
+                                type: 'aiAgentUtils/v1/approvalGateTool',
+                            },
+                        ],
+                    },
+                    workflowNodeName: 'aiAgent_1',
+                },
+            })
+        );
+
+        const {result} = renderHook(() => useAiAgentTools());
+
+        const [toolGroup] = result.current.toolGroups;
+
+        expect(toolGroup.tools.map((tool) => tool.name)).toEqual(['deleteRecord_2']);
+        expect(toolGroup.channelLabels).toEqual(['slack']);
+    });
+
     it('reports a gate with no channels so the panel can show the chat default', () => {
         useWorkflowEditorStoreMock.mockImplementation((selector: (state: unknown) => unknown) =>
             selector({

@@ -1,3 +1,4 @@
+import {getNestedClusterElements} from '@/pages/platform/cluster-element-editor/utils/clusterElementsUtils';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {useGetWorkflowTestConfigurationConnectionsQuery} from '@/shared/queries/platform/workflowTestConfigurations.queries';
@@ -113,9 +114,9 @@ export default function useAiAgentTools(): UseAiAgentToolsI {
                 return;
             }
 
-            const gateClusterElements = element.clusterElements || {};
-            const gatedToolElements = gateClusterElements['tools'];
-            const channelElements = gateClusterElements['approvalChannels'];
+            const gateClusterElements = getNestedClusterElements(element);
+            const gatedToolElements = gateClusterElements?.['tools'];
+            const channelElements = gateClusterElements?.['approvalChannels'];
             const gateParameters = element.parameters as {name?: string} | undefined;
             const gateName = element.workflowNodeName || element.name || '';
 
