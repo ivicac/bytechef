@@ -35,7 +35,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.web.client.RequestCallback;
+import org.springframework.web.client.ResponseErrorHandler;
+import org.springframework.web.client.ResponseExtractor;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriTemplateHandler;
@@ -44,7 +47,7 @@ import org.springframework.web.util.UriTemplateHandler;
  * The single outbound-webhook transport for every surface that posts webhooks — platform notifications (job-status
  * channel), the Atlas per-job callback webhooks ({@code WebhookJobStatusApplicationEventListener} delegates here), the
  * EE AI-observability alert channels, and Slack (via {@code SlackNotificationClient}). One {@code RestTemplate}, one
- * retry mechanism (Spring core {@code RetryTemplate} + {@code ExponentialBackOff} — the mechanics that previously lived
+ * retry mechanism (Spring core {@code RetryTemplate} with an exponential {@code RetryPolicy} delay — the mechanics that previously lived
  * inline in the job-status listener), one place for SSRF validation, standard headers, and HMAC signing.
  *
  * <p>
@@ -166,27 +169,31 @@ public class WebhookNotificationClient {
 
     private void post(String url, HttpEntity<?> httpEntity, WebhookRetry webhookRetry) {
         try {
-            if (webhookRetry.maxRetries() <= 0) {
-                exchange(url, httpEntity);
-            } else {
-                RetryTemplate retryTemplate = new RetryTemplate(
-                    RetryPolicy.builder()
-                        .backOff(
-                            new ExponentialBackOff(
-                                webhookRetry.initialInterval()
-                                    .toMillis(),
-                                webhookRetry.multiplier()))
-                        .maxRetries(webhookRetry.maxRetries())
-                        .build());
+            byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
 
-                retryTemplate.execute(() -> {
-                    exchange(url, httpEntity);
+            RequestCallback requestCallback = clientHttpRequest -> {
+                HttpHeaders requestHeaders = clientHttpRequest.getHeaders();
 
-                    return null;
-                });
+                requestHeaders.putAll(httpHeaders);
+                requestHeaders.setContentLength(payloadBytes.length);
+
+                OutputStream outputStream = clientHttpRequest.getBody();
+
+                outputStream.write(payloadBytes);
+            };
+            ResponseExtractor<WebhookResponse> responseExtractor = clientHttpResponse -> new WebhookResponse(
+                clientHttpResponse.getStatusCode()
+                    .value(),
+                readBody(clientHttpResponse));
+
+            WebhookResponse webhookResponse = restTemplate.execute(
+                uri, HttpMethod.POST, requestCallback, responseExtractor);
+
+            if (webhookResponse == null) {
+                throw new WebhookDeliveryException("Failed to deliver webhook to " + host, null, null);
             }
-        } catch (RetryException retryException) {
-            throw new WebhookDeliveryException("Webhook delivery to " + url + " failed after retries", retryException);
+
+            return webhookResponse;
         } catch (RestClientResponseException restClientResponseException) {
             int statusCode = restClientResponseException.getStatusCode()
                 .value();
