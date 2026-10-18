@@ -22,11 +22,11 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
-import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.JobSuspends;
+import com.bytechef.platform.workflow.execution.event.JobApprovalClosedEvent;
 import com.bytechef.platform.workflow.execution.service.TaskStateService;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
@@ -169,35 +169,13 @@ public class ApprovalExpiryMonitor {
 
         Instant now = Instant.now();
 
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+        String jobResumeId = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
 
-        if (taskExecutionResumeId != null) {
-            try {
-                TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
-
-                TaskExecution.Status status = taskExecution.getStatus();
-
-                if (status == null || !status.isTerminated()) {
-                    taskExecution.setStatus(TaskExecution.Status.FAILED);
-                    taskExecution.setEndDate(now);
-                    taskExecution.setError(
-                        new ExecutionError(
-                            "The pending approval expired at %s without being resolved".formatted(expiresAt),
-                            List.of()));
-
-                    taskExecutionService.update(taskExecution);
-                }
-            } catch (Exception exception) {
-                log.warn(
-                    "Could not mark suspended task execution {} of job {} failed: {}", taskExecutionResumeId, jobId,
-                    exception.getMessage());
-            }
-        }
-
-        job.setStatus(Job.Status.FAILED);
-        job.setEndDate(now);
+        JobSuspends.failExpiredApproval(job, expiresAt, now);
 
         jobService.update(job);
+
+        failSuspendedTaskExecution(job, now);
 
         // The suspended-task state row (keyed by jobResumeId) is otherwise deleted only on resume, so an expired
         // approval would leak it — and the stored suspend payload (the rendered approval request) with it. Delete it
@@ -207,6 +185,34 @@ public class ApprovalExpiryMonitor {
         log.warn("Failed job {}: its pending approval expired at {}", jobId, expiresAt);
 
         eventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.FAILED));
+        eventPublisher.publishEvent(
+            new JobApprovalClosedEvent(jobId, jobResumeId, JobApprovalClosedEvent.Reason.EXPIRED));
+    }
+
+    private void failSuspendedTaskExecution(Job job, Instant now) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+
+            TaskExecution.Status status = taskExecution.getStatus();
+
+            if (status == null || !status.isTerminated()) {
+                taskExecution.setStatus(TaskExecution.Status.FAILED);
+                taskExecution.setEndDate(now);
+                taskExecution.setError(job.getError());
+
+                taskExecutionService.update(taskExecution);
+            }
+        } catch (Exception exception) {
+            log.warn(
+                "Could not mark suspended task execution {} of job {} failed: {}", taskExecutionResumeId,
+                job.getId(), exception.getMessage());
+        }
     }
 
     private void deleteTaskState(Job job) {
