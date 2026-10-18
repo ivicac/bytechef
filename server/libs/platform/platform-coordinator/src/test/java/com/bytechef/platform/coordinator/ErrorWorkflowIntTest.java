@@ -286,6 +286,11 @@ class ErrorWorkflowIntTest {
         }
 
         @Override
+        public long createChildJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType platformType) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long createJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
             createJobCallCount++;
 
@@ -306,6 +311,13 @@ class ErrorWorkflowIntTest {
         @Override
         public long createPrincipalLinkedJob(
             long referenceJobId, JobParametersDTO jobParametersDTO, PlatformType platformType) {
+
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long createPrincipalLinkedJob(
+            JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType platformType) {
 
             throw new UnsupportedOperationException();
         }

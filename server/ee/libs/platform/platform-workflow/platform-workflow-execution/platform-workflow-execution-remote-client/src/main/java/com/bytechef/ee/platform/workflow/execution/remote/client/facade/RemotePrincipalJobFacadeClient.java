@@ -44,6 +44,11 @@ public class RemotePrincipalJobFacadeClient implements PrincipalJobFacade {
     }
 
     @Override
+    public long createChildJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType platformType) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long createJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
         return loadBalancedRestClient.post(
             uriBuilder -> uriBuilder

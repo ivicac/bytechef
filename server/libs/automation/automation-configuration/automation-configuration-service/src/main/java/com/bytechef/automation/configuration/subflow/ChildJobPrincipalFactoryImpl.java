@@ -75,7 +75,7 @@ class ChildJobPrincipalFactoryImpl implements ChildJobPrincipalFactory {
         long projectDeploymentId = resolveProjectDeploymentId(
             parentProjectDeploymentIdOptional.get(), jobParametersDTO.getWorkflowId());
 
-        return principalJobFacade.createJob(jobParametersDTO, projectDeploymentId, PlatformType.AUTOMATION);
+        return principalJobFacade.createChildJob(jobParametersDTO, projectDeploymentId, PlatformType.AUTOMATION);
     }
 
     @Override

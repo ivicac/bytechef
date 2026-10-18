@@ -27,23 +27,19 @@ public interface PrincipalJobFacade {
 
     long createChildJob(long parentJobId, JobParametersDTO jobParametersDTO, PlatformType platformType);
 
+    /**
+     * Creates a sub-workflow job owned by the given principal. A sub-workflow job does not consume licence job quota;
+     * the principal link is committed before the job starts.
+     */
+    long createChildJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType platformType);
+
     long createJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type);
 
-    /**
-     * Creates a top-level job (no parent task execution) linked to the same principal instance as
-     * {@code referenceJobId}. Used by the agent-tool sub-workflow bridge, where the sub-workflow must be independently
-     * resumable and therefore cannot be a child job.
-     *
-     * @param referenceJobId   the job whose principal the new job is linked to
-     * @param jobParametersDTO the new job's parameters
-     * @param platformType     the platform type
-     * @return the created job id
-     */
     long createPrincipalLinkedJob(long referenceJobId, JobParametersDTO jobParametersDTO, PlatformType platformType);
 
     /**
-     * Creates a top-level job, with no parent task execution, owned by the given principal. The principal link is
-     * committed before the job starts.
+     * Creates a top-level job, with no parent task execution, owned by the given principal. Like a sub-workflow job it
+     * does not consume licence job quota; the principal link is committed before the job starts.
      *
      * @throws IllegalArgumentException if the job parameters name a parent task execution
      */

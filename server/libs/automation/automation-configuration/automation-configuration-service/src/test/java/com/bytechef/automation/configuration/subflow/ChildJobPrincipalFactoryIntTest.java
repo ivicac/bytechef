@@ -16,6 +16,7 @@
 
 package com.bytechef.automation.configuration.subflow;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -157,9 +158,10 @@ class ChildJobPrincipalFactoryIntTest {
 
         childJobPrincipalFactory.createChildJob(PARENT_JOB_ID, new JobParametersDTO("childWorkflow", 5L, Map.of()));
 
-        verify(principalJobFacade).createJob(
+        verify(principalJobFacade).createChildJob(
             any(JobParametersDTO.class), eq(childProjectDeploymentId),
             eq(PlatformType.AUTOMATION));
+        verify(principalJobFacade, never()).createJob(any(), anyLong(), any());
     }
 
     @Test
@@ -202,7 +204,7 @@ class ChildJobPrincipalFactoryIntTest {
                 PARENT_JOB_ID, new JobParametersDTO("childWorkflow", 5L, Map.of())))
                     .isInstanceOf(IllegalStateException.class);
 
-        verify(principalJobFacade, never()).createJob(any(), anyLong(), any());
+        verify(principalJobFacade, never()).createChildJob(any(), anyLong(), any());
     }
 
     @Test
