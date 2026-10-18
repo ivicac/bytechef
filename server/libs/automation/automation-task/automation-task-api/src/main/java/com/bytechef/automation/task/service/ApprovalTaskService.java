@@ -49,5 +49,17 @@ public interface ApprovalTaskService {
      */
     List<ApprovalTask> getUnresolvedApprovalTasks();
 
+    /**
+     * Persists the resolution the caller applied with {@link ApprovalTask#complete()} or {@link ApprovalTask#expire()}.
+     *
+     * @throws IllegalStateException if the stored task is already resolved
+     */
+    ApprovalTask resolve(ApprovalTask approvalTask);
+
+    /**
+     * Updates the editable fields of a task. Its status may only move between OPEN and IN_PROGRESS.
+     *
+     * @throws IllegalStateException if the update would change the status of a resolved task or resolve it
+     */
     ApprovalTask update(ApprovalTask approvalTask);
 }

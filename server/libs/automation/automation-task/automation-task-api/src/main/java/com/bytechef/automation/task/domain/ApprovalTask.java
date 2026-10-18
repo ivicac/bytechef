@@ -39,7 +39,11 @@ public final class ApprovalTask {
 
         // Persisted as INT ordinal - append new values at the end only.
         // EXPIRED = the backing approval can no longer be resolved (the paused run expired, failed, or was purged).
-        OPEN, IN_PROGRESS, COMPLETED, EXPIRED
+        OPEN, IN_PROGRESS, COMPLETED, EXPIRED;
+
+        public boolean isTerminal() {
+            return this == COMPLETED || this == EXPIRED;
+        }
     }
 
     public enum Priority {
@@ -114,6 +118,60 @@ public final class ApprovalTask {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Moves an unresolved task between OPEN and IN_PROGRESS; resolving goes through {@link #complete()} or
+     * {@link #expire()}. Requesting the current status is a no-op.
+     *
+     * @throws IllegalStateException if the task is already resolved or {@code targetStatus} is terminal
+     */
+    public void changeProgressStatus(Status targetStatus) {
+        Status currentStatus = getStatus();
+
+        if (targetStatus == currentStatus) {
+            return;
+        }
+
+        if (currentStatus.isTerminal()) {
+            throw new IllegalStateException(
+                "Cannot change approval task %s to %s; it is already %s".formatted(id, targetStatus, currentStatus));
+        }
+
+        if (targetStatus.isTerminal()) {
+            throw new IllegalStateException(
+                "Cannot mark approval task %s as %s; only its resolution can".formatted(id, targetStatus));
+        }
+
+        this.status = targetStatus.ordinal();
+    }
+
+    /**
+     * Resolves an open or in-progress task as completed.
+     *
+     * @throws IllegalStateException if the task is already resolved
+     */
+    public void complete() {
+        checkUnresolved(Status.COMPLETED);
+
+        this.status = Status.COMPLETED.ordinal();
+    }
+
+    /**
+     * Resolves an open or in-progress task as expired.
+     *
+     * @throws IllegalStateException if the task is already resolved
+     */
+    public void expire() {
+        checkUnresolved(Status.EXPIRED);
+
+        this.status = Status.EXPIRED.ordinal();
+    }
+
+    public boolean isResolved() {
+        Status currentStatus = getStatus();
+
+        return currentStatus.isTerminal();
     }
 
     @Override
@@ -236,6 +294,13 @@ public final class ApprovalTask {
 
     public void setVersion(int version) {
         this.version = version;
+    }
+
+    private void checkUnresolved(Status targetStatus) {
+        if (isResolved()) {
+            throw new IllegalStateException(
+                "Cannot mark approval task %s as %s; it is already %s".formatted(id, targetStatus, getStatus()));
+        }
     }
 
     private static <T extends Enum<T>> T toEnum(T[] values, int ordinal, String propertyName) {

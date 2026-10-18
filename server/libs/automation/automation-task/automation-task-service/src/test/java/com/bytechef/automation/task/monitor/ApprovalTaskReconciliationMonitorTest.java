@@ -18,6 +18,7 @@ package com.bytechef.automation.task.monitor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,12 +28,16 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.service.ApprovalTaskService;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.tenant.service.TenantService;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * @author Ivica Cardic
@@ -58,13 +63,13 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.FAILED)));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.FAILED)));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
         ArgumentCaptor<ApprovalTask> approvalTaskArgumentCaptor = ArgumentCaptor.forClass(ApprovalTask.class);
 
-        verify(approvalTaskService).update(approvalTaskArgumentCaptor.capture());
+        verify(approvalTaskService).resolve(approvalTaskArgumentCaptor.capture());
 
         ApprovalTask updatedApprovalTask = approvalTaskArgumentCaptor.getValue();
 
@@ -76,13 +81,13 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.empty());
+        when(jobService.fetchJob(42L)).thenReturn(Optional.empty());
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
         ArgumentCaptor<ApprovalTask> approvalTaskArgumentCaptor = ArgumentCaptor.forClass(ApprovalTask.class);
 
-        verify(approvalTaskService).update(approvalTaskArgumentCaptor.capture());
+        verify(approvalTaskService).resolve(approvalTaskArgumentCaptor.capture());
 
         ApprovalTask updatedApprovalTask = approvalTaskArgumentCaptor.getValue();
 
@@ -100,7 +105,7 @@ class ApprovalTaskReconciliationMonitorTest {
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
-        verify(approvalTaskService, never()).update(any());
+        verify(approvalTaskService, never()).resolve(any());
     }
 
     @Test
@@ -108,13 +113,13 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.COMPLETED)));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.COMPLETED)));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
         ArgumentCaptor<ApprovalTask> approvalTaskArgumentCaptor = ArgumentCaptor.forClass(ApprovalTask.class);
 
-        verify(approvalTaskService).update(approvalTaskArgumentCaptor.capture());
+        verify(approvalTaskService).resolve(approvalTaskArgumentCaptor.capture());
 
         ApprovalTask updatedApprovalTask = approvalTaskArgumentCaptor.getValue();
 
@@ -122,15 +127,45 @@ class ApprovalTaskReconciliationMonitorTest {
     }
 
     @Test
-    void testStoppedRunLeavesTaskUntouched() {
+    void testRunSuspendedOnThisApprovalLeavesTaskUntouched() {
         ApprovalTask approvalTask = approvalTask(42L);
 
+        Job job = job(Job.Status.STOPPED);
+
+        job.setMetadata(Map.of(MetadataConstants.JOB_RESUME_ID, approvalTask.getJobResumeId()));
+
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.STOPPED)));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
-        verify(approvalTaskService, never()).update(any());
+        verify(approvalTaskService, never()).resolve(any());
+    }
+
+    @Test
+    void testStoppedRunWithoutResumeIdMarksTaskExpired() {
+        ApprovalTask approvalTask = approvalTask(42L);
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.STOPPED)));
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService).resolve(approvalTask);
+
+        assertEquals(ApprovalTask.Status.EXPIRED, approvalTask.getStatus());
+    }
+
+    @Test
+    void testRunningJobLeavesTaskUntouched() {
+        ApprovalTask approvalTask = approvalTask(42L);
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.STARTED)));
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService, never()).resolve(any());
     }
 
     @Test
@@ -143,13 +178,70 @@ class ApprovalTaskReconciliationMonitorTest {
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
-        verify(approvalTaskService, never()).update(any());
+        verify(approvalTaskService, never()).resolve(any());
+    }
+
+    @Test
+    void testFailedUpdateDoesNotSkipTheRemainingTasks() {
+        ApprovalTask firstApprovalTask = approvalTask(41L);
+        ApprovalTask secondApprovalTask = approvalTask(42L);
+
+        firstApprovalTask.setId(1L);
+        secondApprovalTask.setId(2L);
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(
+            List.of(firstApprovalTask, secondApprovalTask));
+        when(jobService.fetchJob(41L)).thenReturn(Optional.of(job(Job.Status.COMPLETED)));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.COMPLETED)));
+        doThrow(new OptimisticLockingFailureException("stale"))
+            .when(approvalTaskService)
+            .resolve(firstApprovalTask);
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService).resolve(secondApprovalTask);
+
+        assertEquals(ApprovalTask.Status.COMPLETED, secondApprovalTask.getStatus());
+    }
+
+    @Test
+    void testStoppedRunSuspendedElsewhereMarksTaskCompleted() {
+        ApprovalTask approvalTask = approvalTask(42L);
+
+        Job job = job(Job.Status.STOPPED);
+
+        JobResumeId otherJobResumeId = JobResumeId.of("public", 42L);
+
+        job.setMetadata(Map.of(MetadataConstants.JOB_RESUME_ID, otherJobResumeId.toString()));
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job));
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService).resolve(approvalTask);
+
+        assertEquals(ApprovalTask.Status.COMPLETED, approvalTask.getStatus());
+    }
+
+    @Test
+    void testCancelledRunMarksTaskExpired() {
+        ApprovalTask approvalTask = approvalTask(42L);
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
+        when(jobService.fetchJob(42L)).thenReturn(Optional.of(job(Job.Status.CANCELLED)));
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService).resolve(approvalTask);
+
+        assertEquals(ApprovalTask.Status.EXPIRED, approvalTask.getStatus());
     }
 
     private static ApprovalTask approvalTask(long jobId) {
         ApprovalTask approvalTask = new ApprovalTask();
 
-        JobResumeId jobResumeId = JobResumeId.of(jobId);
+        JobResumeId jobResumeId = JobResumeId.of("public", jobId);
 
         approvalTask.setJobResumeId(jobResumeId.toString());
 

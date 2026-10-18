@@ -20,6 +20,7 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.service.ApprovalTaskService;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
@@ -81,21 +82,33 @@ public class ApprovalTaskReconciliationMonitor {
 
     private void reconcileCurrentTenant() {
         for (ApprovalTask approvalTask : approvalTaskService.getUnresolvedApprovalTasks()) {
-            ApprovalTask.Status resolvedStatus = resolveStatus(approvalTask);
-
-            if (resolvedStatus == null) {
-                continue;
+            try {
+                reconcile(approvalTask);
+            } catch (RuntimeException runtimeException) {
+                log.warn("Could not reconcile approval task {}", approvalTask.getId(), runtimeException);
             }
+        }
+    }
 
-            approvalTask.setStatus(resolvedStatus);
+    private void reconcile(ApprovalTask approvalTask) {
+        ApprovalTask.Status resolvedStatus = resolveStatus(approvalTask);
 
-            approvalTaskService.update(approvalTask);
+        if (resolvedStatus == null) {
+            return;
+        }
 
-            if (log.isDebugEnabled()) {
-                log.debug(
-                    "Marked approval task id={} as {} after reconciling its backing run", approvalTask.getId(),
-                    resolvedStatus);
-            }
+        if (resolvedStatus == ApprovalTask.Status.COMPLETED) {
+            approvalTask.complete();
+        } else {
+            approvalTask.expire();
+        }
+
+        approvalTaskService.resolve(approvalTask);
+
+        if (log.isDebugEnabled()) {
+            log.debug(
+                "Marked approval task id={} as {} after reconciling its backing run", approvalTask.getId(),
+                resolvedStatus);
         }
     }
 
@@ -110,15 +123,15 @@ public class ApprovalTaskReconciliationMonitor {
             return null;
         }
 
-        long jobId;
+        JobResumeId jobResumeId;
 
         try {
-            JobResumeId jobResumeId = JobResumeId.parse(jobResumeIdString);
-
-            jobId = jobResumeId.getJobId();
-        } catch (Exception exception) {
+            jobResumeId = JobResumeId.parse(jobResumeIdString);
+        } catch (RuntimeException runtimeException) {
             return null;
         }
+
+        long jobId = jobResumeId.getJobId();
 
         Optional<Job> jobOptional;
 
@@ -142,13 +155,33 @@ public class ApprovalTaskReconciliationMonitor {
             return ApprovalTask.Status.EXPIRED;
         }
 
-        return switch (jobOptional.get()
-            .getStatus()) {
+        Job job = jobOptional.get();
+
+        return switch (job.getStatus()) {
             // Resolved on another node — the in-JVM resume event never reached the completion listener.
             case COMPLETED -> ApprovalTask.Status.COMPLETED;
             // Failed by the approval-expiry sweep or a hard error — unresolvable either way.
             case FAILED, CANCELLED -> ApprovalTask.Status.EXPIRED;
+            case STOPPED -> resolveStoppedStatus(job, jobResumeId);
             default -> null;
         };
+    }
+
+    /**
+     * A stopped run still waits on this task's approval only while its current resume id is the task's; a run stopped
+     * on a later suspend got past this approval, and a run stopped with no resume id can no longer be resumed by it.
+     */
+    private static ApprovalTask.@Nullable Status resolveStoppedStatus(Job job, JobResumeId jobResumeId) {
+        Object currentJobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (currentJobResumeId == null) {
+            return ApprovalTask.Status.EXPIRED;
+        }
+
+        if (jobResumeId.matches(currentJobResumeId.toString())) {
+            return null;
+        }
+
+        return ApprovalTask.Status.COMPLETED;
     }
 }
