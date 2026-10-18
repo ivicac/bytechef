@@ -47,6 +47,7 @@ import com.bytechef.platform.ai.tool.facade.AbstractToolFacade;
 import com.bytechef.platform.ai.tool.util.FromAiInputSchemaUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.constant.WorkflowConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
@@ -70,6 +71,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
@@ -543,7 +545,8 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
             String jobResumeIdString = jobResumeId == null ? null : jobResumeId.toString();
             ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
 
-            String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeIdString, approvalTokens)
+            String formUrl = ApprovalFormUrls
+                .buildFormUrl(publicUrl, jobResumeIdString, approvalTokens, resolveApprovalExpiresAt(job))
                 .orElse(null);
 
             result.put("status", "approval_required");
@@ -557,9 +560,6 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
             if (formUrl != null) {
                 result.put("formUrl", formUrl);
             }
-
-            ApprovalFormUrls.buildResumeToken(jobResumeIdString, approvalTokens)
-                .ifPresent(resumeToken -> result.put("resumeToken", resumeToken));
         } else if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null) {
             result.put("status", "suspended");
             result.put("message", "The workflow run is paused and resumes later on its own.");
@@ -593,15 +593,16 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     }
 
     public Optional<String> resolvePendingApprovalFormUrl(long jobId) {
-        return fetchPendingApprovalJobResumeId(jobId)
-            .flatMap(jobResumeId -> ApprovalFormUrls.buildFormUrl(
-                publicUrl, jobResumeId, approvalTokensObjectProvider.getIfAvailable()));
+        return fetchPendingApprovalJob(jobId)
+            .flatMap(job -> ApprovalFormUrls.buildFormUrl(
+                publicUrl, getJobResumeId(job), approvalTokensObjectProvider.getIfAvailable(),
+                resolveApprovalExpiresAt(job)));
     }
 
     public Optional<String> resolvePendingApprovalResumeToken(long jobId) {
-        return fetchPendingApprovalJobResumeId(jobId)
-            .flatMap(jobResumeId -> ApprovalFormUrls.buildResumeToken(
-                jobResumeId, approvalTokensObjectProvider.getIfAvailable()));
+        return fetchPendingApprovalJob(jobId)
+            .flatMap(job -> ApprovalFormUrls.buildResumeToken(
+                getJobResumeId(job), approvalTokensObjectProvider.getIfAvailable(), resolveApprovalExpiresAt(job)));
     }
 
     public @Nullable Object awaitApprovedWorkflowRun(long jobId) {
@@ -651,7 +652,15 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     }
 
     public @Nullable Object resolveApprovalAndAwait(String resumeToken, Map<String, Object> data, long jobId) {
-        JobResumeFacade.JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        JobResumeFacade.JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        } catch (ApprovalInputException approvalInputException) {
+            return Map.of(
+                "status", "approval_input_required",
+                "message", approvalInputException.getMessage() + " Resolve the approval through its form instead.");
+        }
 
         if (outcome != JobResumeFacade.JobResumeOutcome.OK) {
             return Map.of(
@@ -662,11 +671,34 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         return awaitApprovedWorkflowRun(jobId);
     }
 
-    private Optional<String> fetchPendingApprovalJobResumeId(long jobId) {
+    private Optional<Job> fetchPendingApprovalJob(long jobId) {
         return jobService.fetchJob(jobId)
             .filter(job -> job.getStatus() == Job.Status.STOPPED)
-            .map(job -> job.getMetadata(MetadataConstants.JOB_RESUME_ID))
-            .map(Object::toString);
+            .filter(job -> job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null);
+    }
+
+    private static String getJobResumeId(Job job) {
+        return String.valueOf(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
+    }
+
+    private @Nullable Instant resolveApprovalExpiresAt(Job job) {
+        Object taskExecutionResumeId = job.getMetadata(MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return null;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(
+                ConvertUtils.convertValue(taskExecutionResumeId, Long.class));
+
+            return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the approval expiry of job {}: {}", job.getId(), runtimeException.getMessage());
+
+            return null;
+        }
     }
 
     private boolean isToolEnabled(long integrationInstanceId, long mcpToolId) {

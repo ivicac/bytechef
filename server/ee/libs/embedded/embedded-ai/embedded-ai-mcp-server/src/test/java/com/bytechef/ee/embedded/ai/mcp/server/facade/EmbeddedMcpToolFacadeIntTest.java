@@ -442,7 +442,8 @@ class EmbeddedMcpToolFacadeIntTest {
 
         assertThat(result)
             .containsEntry("status", "approval_required")
-            .containsEntry("jobId", 5);
+            .containsEntry("jobId", 5)
+            .doesNotContainKey("resumeToken");
 
         verify(principalJobFacade).createJob(any(), eq(integrationInstanceId), eq(PlatformType.EMBEDDED));
         verify(jobSyncExecutor, never()).execute(any(), any(), anyBoolean(), any());

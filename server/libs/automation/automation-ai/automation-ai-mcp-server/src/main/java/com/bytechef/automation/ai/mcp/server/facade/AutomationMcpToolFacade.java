@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.mcp.server.facade;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
@@ -42,6 +43,7 @@ import com.bytechef.platform.ai.tool.FromAiResult;
 import com.bytechef.platform.ai.tool.facade.AbstractToolFacade;
 import com.bytechef.platform.ai.tool.util.FromAiInputSchemaUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -60,6 +62,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
@@ -401,7 +404,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
 
         String formUrl = ApprovalFormUrls
-            .buildFormUrl(publicUrl, jobResumeIdString, approvalTokens)
+            .buildFormUrl(publicUrl, jobResumeIdString, approvalTokens, resolveApprovalExpiresAt(job))
             .orElse(null);
 
         Map<String, Object> result = new HashMap<>();
@@ -417,9 +420,6 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         if (formUrl != null) {
             result.put("formUrl", formUrl);
         }
-
-        ApprovalFormUrls.buildResumeToken(jobResumeIdString, approvalTokens)
-            .ifPresent(resumeToken -> result.put("resumeToken", resumeToken));
 
         if (job.getId() != null) {
             result.put("jobId", job.getId());
@@ -439,7 +439,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
 
         return ApprovalFormUrls.buildResumeToken(
-            jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
+            jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable(), resolveApprovalExpiresAt(job));
     }
 
     public boolean isJobWorkflowExposedByMcpServer(long jobId, long mcpServerId) {
@@ -495,7 +495,28 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
 
         return ApprovalFormUrls.buildFormUrl(
-            publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
+            publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable(),
+            resolveApprovalExpiresAt(job));
+    }
+
+    private @Nullable Instant resolveApprovalExpiresAt(Job job) {
+        Object taskExecutionResumeId = job.getMetadata(MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return null;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(
+                ConvertUtils.convertValue(taskExecutionResumeId, Long.class));
+
+            return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the approval expiry of job {}: {}", job.getId(), runtimeException.getMessage());
+
+            return null;
+        }
     }
 
     public @Nullable Object awaitApprovedWorkflowRun(long jobId) {
@@ -532,7 +553,15 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     }
 
     public @Nullable Object resolveApprovalAndAwait(String resumeToken, Map<String, Object> data, long jobId) {
-        JobResumeFacade.JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        JobResumeFacade.JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        } catch (ApprovalInputException approvalInputException) {
+            return Map.of(
+                "status", "approval_input_required",
+                "message", approvalInputException.getMessage() + " Resolve the approval through its form instead.");
+        }
 
         if (outcome != JobResumeFacade.JobResumeOutcome.OK) {
             return Map.of(
