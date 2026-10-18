@@ -57,7 +57,8 @@ class ApprovalTaskExpiryListenerTest {
         when(approvalTaskService.getUnresolvedApprovalTasks())
             .thenReturn(List.of(closedJobApprovalTask, otherJobApprovalTask));
 
-        approvalTaskExpiryListener.onJobApprovalClosed(new JobApprovalClosedEvent(42L, null, JobApprovalClosedEvent.Reason.EXPIRED));
+        approvalTaskExpiryListener
+            .onJobApprovalClosed(new JobApprovalClosedEvent(42L, null, JobApprovalClosedEvent.Reason.EXPIRED));
 
         assertThat(closedJobApprovalTask.getStatus()).isEqualTo(ApprovalTask.Status.EXPIRED);
         assertThat(otherJobApprovalTask.getStatus()).isEqualTo(ApprovalTask.Status.OPEN);
@@ -91,7 +92,8 @@ class ApprovalTaskExpiryListenerTest {
 
         secondApprovalTask.setId(2L);
 
-        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(firstApprovalTask, secondApprovalTask));
+        when(approvalTaskService.getUnresolvedApprovalTasks())
+            .thenReturn(List.of(firstApprovalTask, secondApprovalTask));
         when(approvalTaskService.resolve(firstApprovalTask)).thenThrow(new IllegalStateException("stale"));
 
         approvalTaskExpiryListener.onJobApprovalClosed(
@@ -108,7 +110,8 @@ class ApprovalTaskExpiryListenerTest {
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
 
-        approvalTaskExpiryListener.onJobApprovalClosed(new JobApprovalClosedEvent(42L, null, JobApprovalClosedEvent.Reason.EXPIRED));
+        approvalTaskExpiryListener
+            .onJobApprovalClosed(new JobApprovalClosedEvent(42L, null, JobApprovalClosedEvent.Reason.EXPIRED));
 
         verify(approvalTaskService, never()).resolve(any());
     }

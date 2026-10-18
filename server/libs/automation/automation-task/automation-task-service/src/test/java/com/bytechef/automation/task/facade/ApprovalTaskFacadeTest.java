@@ -36,7 +36,6 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.service.ApprovalTaskService;
-import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
@@ -254,14 +253,16 @@ class ApprovalTaskFacadeTest {
 
     @Test
     void testGetPendingApprovalsSignsTheFormLinkToExpireWithTheApproval() {
-        Instant expiresAt = Instant.now()
-            .plus(Duration.ofDays(2));
+        Instant expiresAt = Instant.ofEpochMilli(
+            Instant.now()
+                .plus(Duration.ofDays(2))
+                .toEpochMilli());
 
         Job job = pendingJob(1L, "tokenA", 7L, Instant.now(), "workflow-a");
 
         TaskExecution suspendedTaskExecution = new TaskExecution();
 
-        suspendedTaskExecution.putMetadata(MetadataConstants.SUSPEND, new Suspend(Map.of(), expiresAt));
+        suspendedTaskExecution.putMetadata("suspend", Map.of("expiresAt", expiresAt.toEpochMilli()));
 
         when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class))).thenReturn(List.of(job));
         when(workflowService.getWorkflow("workflow-a")).thenThrow(new IllegalArgumentException("missing"));
