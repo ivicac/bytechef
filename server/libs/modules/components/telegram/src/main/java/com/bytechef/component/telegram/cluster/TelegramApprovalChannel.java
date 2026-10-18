@@ -23,6 +23,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.SHORT_RESUME_ID;
 import static com.bytechef.component.telegram.constant.TelegramConstants.CHAT_ID;
 import static com.bytechef.component.telegram.constant.TelegramConstants.TELEGRAM;
 import static com.bytechef.component.telegram.constant.TelegramConstants.TEXT;
@@ -35,17 +36,9 @@ import com.bytechef.component.definition.Context.Http;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Approval channel that sends the request to a Telegram chat through the connected bot. Field-less approvals get
@@ -56,12 +49,6 @@ import org.slf4j.LoggerFactory;
  * @author Ivica Cardic
  */
 public class TelegramApprovalChannel {
-
-    private static final Logger log = LoggerFactory.getLogger(TelegramApprovalChannel.class);
-
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(5))
-        .build();
 
     public static final ModifiableClusterElementDefinition<ApprovalChannelFunction> CLUSTER_ELEMENT_DEFINITION =
         ComponentDsl.<ApprovalChannelFunction>clusterElement(TELEGRAM)
@@ -96,17 +83,17 @@ public class TelegramApprovalChannel {
 
             boolean inPlace = webhookSecretToken != null && !webhookSecretToken.isBlank();
 
-            String shortId = inputs.isEmpty() && inPlace && formUrl.contains("/resume/")
-                ? mintShortId(formUrl)
+            String shortId = inputs.isEmpty() && inPlace
+                ? getShortResumeId(inputParameters)
                 : null;
 
             List<List<Map<String, String>>> inlineKeyboard;
 
             if (shortId != null) {
                 // In-place callback buttons: the tap resolves the approval through /telegram/interactivity without
-                // leaving Telegram. callback_data is capped at 64 bytes, so it carries a short id (minted server-side)
-                // rather than the token; the hosted-form link stays in the text as a durable fallback in case the
-                // short id is lost (e.g. a coordinator restart).
+                // leaving Telegram. callback_data is capped at 64 bytes, so it carries a short id (minted in process
+                // when the request is raised) rather than the token; the hosted-form link stays in the text as a
+                // durable fallback in case the short id is lost (e.g. a coordinator restart).
                 inlineKeyboard = List.of(
                     List.of(
                         callbackButton("Approve", shortId + ":a"),
@@ -136,40 +123,10 @@ public class TelegramApprovalChannel {
             .getBody(new TypeReference<>() {});
     }
 
-    /**
-     * Mints a short id for the resume token (the {@code formUrl} tail) via the ByteChef short-token endpoint, derived
-     * from the public URL in {@code formUrl}. Returns {@code null} on any failure so the caller falls back to the
-     * hosted-form URL buttons — in-place delivery is never allowed to fail the approval.
-     */
-    private static @Nullable String mintShortId(String formUrl) {
-        String publicUrl = formUrl.substring(0, formUrl.indexOf("/resume/"));
-        String token = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+    private static @Nullable String getShortResumeId(Parameters inputParameters) {
+        String shortResumeId = inputParameters.getString(SHORT_RESUME_ID);
 
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(publicUrl + "/approval/short-token"))
-                .timeout(Duration.ofSeconds(5))
-                .header("Content-Type", "text/plain")
-                .POST(HttpRequest.BodyPublishers.ofString(token, StandardCharsets.UTF_8))
-                .build();
-
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200) {
-                String shortId = response.body()
-                    .trim();
-
-                return shortId.isBlank() ? null : shortId;
-            }
-        } catch (InterruptedException interruptedException) {
-            Thread.currentThread()
-                .interrupt();
-        } catch (Exception exception) {
-            log.warn("Could not mint a Telegram approval short id; falling back to form links: {}",
-                exception.getMessage());
-        }
-
-        return null;
+        return shortResumeId == null || shortResumeId.isBlank() ? null : shortResumeId;
     }
 
     private static Map<String, String> urlButton(String label, String url) {

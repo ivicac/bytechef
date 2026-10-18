@@ -43,8 +43,10 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.file.storage.EditorTempFileStorage;
 import com.bytechef.platform.file.storage.TempFileStorage;
+import com.bytechef.platform.workflow.execution.token.ApprovalShortResumeIds;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import io.micrometer.tracing.Tracer;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -75,7 +77,8 @@ class ContextFactoryTest {
         contextFactory = new ContextFactoryImpl(
             mock(ApplicationContext.class), applicationProperties, mock(CacheManager.class), mock(DataStorage.class),
             editorLogFileStorage, mock(EditorTempFileStorage.class), mock(ApplicationEventPublisher.class),
-            mock(ObjectProvider.class), approvalTokensProvider, logFileStorage, mock(TempFileStorage.class),
+            mock(ObjectProvider.class), approvalTokensProvider, mock(ObjectProvider.class), logFileStorage,
+            mock(TempFileStorage.class),
             mock(Tracer.class), triggerLogFileStorage);
     }
 
@@ -146,7 +149,8 @@ class ContextFactoryTest {
                 mock(ApplicationContext.class), applicationProperties, mock(CacheManager.class),
                 mock(DataStorage.class), editorLogFileStorage, mock(EditorTempFileStorage.class),
                 mock(ApplicationEventPublisher.class), mock(ObjectProvider.class), approvalTokensProvider,
-                logFileStorage, mock(TempFileStorage.class), mock(Tracer.class), triggerLogFileStorage);
+                mock(ObjectProvider.class), logFileStorage, mock(TempFileStorage.class), mock(Tracer.class),
+                triggerLogFileStorage);
 
             ActionContext actionContext = signingContextFactory.createActionContext(
                 "aiAgent", 1, "chat", null, null, 1L, 10L, "workflowId", null, null, PlatformType.AUTOMATION, false);
@@ -161,6 +165,42 @@ class ContextFactoryTest {
 
             assertThat(links.approvalLink()).isEqualTo("https://example.com/approvals/signed-token");
             assertThat(links.disapprovalLink()).isEqualTo("https://example.com/approvals/signed-token");
+        }
+
+        @Test
+        void testAToolActionOfAClusterElementMintsShortResumeIdsInProcess() {
+            ApplicationProperties applicationProperties = mock(ApplicationProperties.class);
+
+            when(applicationProperties.getPublicUrl()).thenReturn("https://example.com");
+
+            ApprovalShortResumeIds approvalShortResumeIds = mock(ApprovalShortResumeIds.class);
+            Instant expiresAt = Instant.parse("2030-01-01T00:00:00Z");
+
+            when(approvalShortResumeIds.mint("token", expiresAt)).thenReturn("short-id");
+
+            @SuppressWarnings("unchecked")
+            ObjectProvider<ApprovalShortResumeIds> approvalShortResumeIdsProvider = mock(ObjectProvider.class);
+
+            when(approvalShortResumeIdsProvider.getIfAvailable()).thenReturn(approvalShortResumeIds);
+
+            ContextFactory mintingContextFactory = new ContextFactoryImpl(
+                mock(ApplicationContext.class), applicationProperties, mock(CacheManager.class),
+                mock(DataStorage.class), editorLogFileStorage, mock(EditorTempFileStorage.class),
+                mock(ApplicationEventPublisher.class), mock(ObjectProvider.class), mock(ObjectProvider.class),
+                approvalShortResumeIdsProvider, logFileStorage, mock(TempFileStorage.class), mock(Tracer.class),
+                triggerLogFileStorage);
+
+            ActionContext actionContext = mintingContextFactory.createActionContext(
+                "aiAgent", 1, "chat", null, null, 1L, 10L, "workflowId", null, null, PlatformType.AUTOMATION, false);
+
+            ClusterElementContext clusterElementContext = ((ActionContextAware) actionContext).toClusterElementContext(
+                "approvalTool", 1, "approvalElement", null);
+
+            ActionContext toolActionContext = ((ClusterElementContextAware) clusterElementContext).toActionContext(
+                "approval", 1, "requestApproval", null);
+
+            assertThat(((ActionContextAware) toolActionContext).mintShortResumeId("token", expiresAt))
+                .isEqualTo("short-id");
         }
     }
 }

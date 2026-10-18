@@ -16,9 +16,11 @@
 
 package com.bytechef.platform.webhook.web.rest;
 
+import com.bytechef.commons.util.EncodingUtils;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalShortResumeIds;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,8 +30,8 @@ import org.springframework.stereotype.Component;
 /**
  * In-memory map from a short opaque id to a (long) tokenized resume id, for approval channels whose interactive-button
  * payload is too small to carry the whole token — Telegram ({@code callback_data} 64 bytes) and Discord
- * ({@code custom_id} 100 chars). The channel mints a short id at send time (via {@link ApprovalShortTokenController})
- * and the interactivity handler resolves it back.
+ * ({@code custom_id} 100 chars). The approval request mints a short id in process at send time and hands it to the
+ * channel, and the interactivity handler resolves it back.
  *
  * <p>
  * The map is process-local and lost on restart. That is acceptable because those channels also keep the hosted-form
@@ -42,7 +44,7 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
-public class ApprovalShortTokenStore {
+public class ApprovalShortTokenStore implements ApprovalShortResumeIds {
 
     private static final int MAX_ENTRIES = 100_000;
     private static final long TTL_SECONDS = 70L * 24 * 60 * 60;
@@ -55,6 +57,22 @@ public class ApprovalShortTokenStore {
      * the oldest when the map is full.
      */
     public String mint(String token) {
+        return mint(token, Instant.now()
+            .getEpochSecond() + TTL_SECONDS);
+    }
+
+    /**
+     * Stores the token under a fresh random id that stays resolvable until the approval expires plus
+     * {@link ApprovalFormUrls#APPROVAL_TOKEN_TTL_MARGIN}.
+     */
+    @Override
+    public String mint(String token, Instant expiresAt) {
+        Instant shortIdExpiresAt = expiresAt.plus(ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN);
+
+        return mint(token, shortIdExpiresAt.getEpochSecond());
+    }
+
+    private String mint(String token, long expiresAtEpochSecond) {
         purgeExpired();
 
         if (entries.size() >= MAX_ENTRIES) {
@@ -65,12 +83,9 @@ public class ApprovalShortTokenStore {
 
         secureRandom.nextBytes(bytes);
 
-        String shortId = Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(bytes);
+        String shortId = EncodingUtils.urlEncodeBase64ToString(bytes);
 
-        entries.put(shortId, new Entry(token, Instant.now()
-            .getEpochSecond() + TTL_SECONDS));
+        entries.put(shortId, new Entry(token, expiresAtEpochSecond));
 
         return shortId;
     }

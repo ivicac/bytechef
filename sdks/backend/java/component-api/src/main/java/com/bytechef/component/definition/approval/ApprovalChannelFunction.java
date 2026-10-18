@@ -60,6 +60,18 @@ public interface ApprovalChannelFunction {
     String INPUTS = "inputs";
 
     /**
+     * Key under which the platform publishes the resume token of the request, the tail of {@code formUrl}, so a channel
+     * that resolves the request in place can name it.
+     */
+    String RESUME_ID = "resumeId";
+
+    /**
+     * Key under which the platform publishes a short id standing for the resume token, for channels whose button
+     * payloads cannot hold the whole token. Absent when the platform could not mint one.
+     */
+    String SHORT_RESUME_ID = "shortResumeId";
+
+    /**
      * Delivers the approval request through this channel and returns the channel-specific result.
      *
      * <p>

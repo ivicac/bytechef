@@ -18,6 +18,8 @@ package com.bytechef.component.ai.llm.tool;
 
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.RESUME_ID;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.SHORT_RESUME_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,7 +56,7 @@ class ToolApprovalRequestsTest {
     void testRaiseWithNoResumeUrlThrowsApprovalUnavailable() {
         ActionContextAware actionContext = mock(ActionContextAware.class);
 
-        when(actionContext.getResumeUrl()).thenReturn(null);
+        when(actionContext.getResumeUrl(any())).thenReturn(null);
 
         ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
             "gatedTool", "{}", "title", "description", null, List.of(), Map.of(), Map.of(),
@@ -93,7 +95,9 @@ class ToolApprovalRequestsTest {
 
         ClusterElement slackChannel = new ClusterElement(
             null, null, Map.of(), null, "slack/v1/approvalChannel",
-            Map.of(FORM_TITLE, "spoofed", "expiresAt", "never", "channel", "#general"), "slack_1");
+            Map.of(
+                FORM_TITLE, "spoofed", "expiresAt", "never", "channel", "#general", SHORT_RESUME_ID, "spoofed"),
+            "slack_1");
 
         ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
             "gatedTool", "{}", "title", "description", EXPIRES_AT, List.of(slackChannel), Map.of(), Map.of(),
@@ -111,7 +115,39 @@ class ToolApprovalRequestsTest {
         assertThat(inputParametersArgumentCaptor.getValue())
             .containsEntry(FORM_TITLE, "title")
             .containsEntry("expiresAt", EXPIRES_AT.toString())
-            .containsEntry("channel", "#general");
+            .containsEntry("channel", "#general")
+            .containsEntry(RESUME_ID, "abc123")
+            .doesNotContainKey(SHORT_RESUME_ID);
+    }
+
+    @Test
+    void testRaisePassesTheInProcessShortResumeIdToChannels() {
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        mockSuspendingActionContext(actionContext);
+
+        when(actionContext.mintShortResumeId("abc123", EXPIRES_AT)).thenReturn("short-1");
+
+        ClusterElement telegramChannel = new ClusterElement(
+            null, null, Map.of(), null, "telegram/v1/telegram", Map.of(), "telegram_1");
+
+        ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
+            "gatedTool", "{}", "title", "description", EXPIRES_AT, List.of(telegramChannel), Map.of(), Map.of(),
+            clusterElementDefinitionService, actionContext, null);
+
+        ToolApprovalRequests.raise(request);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> inputParametersArgumentCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("telegram"), eq(1), eq("telegram"), inputParametersArgumentCaptor.capture(), anyString(), isNull(),
+            eq(actionContext));
+
+        assertThat(inputParametersArgumentCaptor.getValue())
+            .containsEntry(RESUME_ID, "abc123")
+            .containsEntry(SHORT_RESUME_ID, "short-1");
     }
 
     @Test
@@ -143,7 +179,7 @@ class ToolApprovalRequestsTest {
     private static AtomicReference<Suspend> mockSuspendingActionContext(ActionContextAware actionContext) {
         AtomicReference<Suspend> suspendReference = new AtomicReference<>();
 
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.getSuspend()).thenAnswer(invocation -> suspendReference.get());
 
         doAnswer(invocation -> {

@@ -19,6 +19,8 @@ package com.bytechef.component.ai.llm.tool;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.RESUME_ID;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.SHORT_RESUME_ID;
 
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
@@ -93,7 +95,7 @@ public final class ToolApprovalRequests {
     public static String raise(Request request) {
         ActionContextAware actionContext = request.actionContext();
 
-        String resumeUrl = actionContext.getResumeUrl();
+        String resumeUrl = actionContext.getResumeUrl(request.expiresAt());
 
         if (resumeUrl == null) {
             throw new ApprovalUnavailableException(
@@ -179,16 +181,25 @@ public final class ToolApprovalRequests {
     }
 
     private static void deliverApprovalRequest(Request request, String formUrl) {
+        ActionContextAware actionContext = request.actionContext();
+        Instant expiresAt = request.expiresAt();
+        String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
         Map<String, Object> channelInputParameters = new HashMap<>();
 
         channelInputParameters.put(FORM_TITLE, request.title());
         channelInputParameters.put(FORM_DESCRIPTION, request.description());
-        channelInputParameters.put(EXPIRES_AT, request.expiresAt()
-            .toString());
+        channelInputParameters.put(EXPIRES_AT, expiresAt.toString());
+        channelInputParameters.put(RESUME_ID, resumeId);
+
+        String shortResumeId = actionContext.mintShortResumeId(resumeId, expiresAt);
+
+        if (shortResumeId != null) {
+            channelInputParameters.put(SHORT_RESUME_ID, shortResumeId);
+        }
 
         List<ClusterElement> approvalChannelClusterElements = request.approvalChannelClusterElements();
         ClusterElementDefinitionService clusterElementDefinitionService = request.clusterElementDefinitionService();
-        ActionContextAware actionContext = request.actionContext();
 
         // Best-effort per channel: a failing channel is logged and skipped so the remaining channels still deliver
         // and the turn still suspends. Only when EVERY channel fails is the call failed — then nobody was notified
@@ -229,6 +240,10 @@ public final class ToolApprovalRequests {
                 Map<String, Object> mergedInputParameters = new HashMap<>(approvalChannel.getParameters());
 
                 mergedInputParameters.putAll(channelInputParameters);
+
+                if (shortResumeId == null) {
+                    mergedInputParameters.remove(SHORT_RESUME_ID);
+                }
 
                 deliver(
                     delivery, approvalChannel.getComponentName(), approvalChannel.getClusterElementName(),

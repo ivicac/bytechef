@@ -20,6 +20,7 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.constant.PlatformType;
+import java.time.Instant;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -81,6 +82,30 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
      */
     @Nullable
     String getResumeUrl();
+
+    /**
+     * Generates the resume URL of an approval, signed to stay valid until the approval expires plus a margin.
+     *
+     * @param expiresAt when the approval expires
+     * @return the resume URL, or null if publicUrl or jobId is not available
+     */
+    @Nullable
+    default String getResumeUrl(Instant expiresAt) {
+        return getResumeUrl();
+    }
+
+    /**
+     * Mints a short id standing for the resume token, for approval channels whose button payloads cannot hold the whole
+     * token.
+     *
+     * @param resumeToken the resume token, the tail of the resume URL
+     * @param expiresAt   when the approval expires
+     * @return the short id, or null when none can be minted in this process
+     */
+    @Nullable
+    default String mintShortResumeId(String resumeToken, Instant expiresAt) {
+        return null;
+    }
 
     /**
      * Retrieves the unique identifier associated with the job principal.

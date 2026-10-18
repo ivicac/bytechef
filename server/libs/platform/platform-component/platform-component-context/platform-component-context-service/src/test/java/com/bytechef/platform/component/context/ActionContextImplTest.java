@@ -16,11 +16,17 @@
 
 package com.bytechef.platform.component.context;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext.Approval.Links;
 import com.bytechef.component.definition.ActionContext.Suspend;
@@ -29,10 +35,17 @@ import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.file.storage.TempFileStorage;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalShortResumeIds;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -125,6 +138,74 @@ class ActionContextImplTest {
         ApprovalId approvalId = ApprovalId.parse(approvalLink.substring(approvalLink.lastIndexOf('/') + 1));
 
         assertEquals(TENANT_ID, approvalId.getTenantId());
+    }
+
+    @Test
+    void testGetResumeUrlForAnApprovalSignsTheTokenUntilTheApprovalExpiresPlusTheMargin() {
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.toSignedTokenIfConfigured(anyString(), any(Duration.class)))
+            .thenReturn(Optional.of("signed-token"));
+
+        ActionContextImpl actionContext = ActionContextImpl.builder(
+            "approval", 1, "requestApproval", false, mock(CacheManager.class), mock(DataStorage.class),
+            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null,
+            approvalTokens)
+            .jobId(200L)
+            .publicUrl("https://example.com")
+            .build();
+
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofDays(60));
+
+        assertEquals("https://example.com/job/resume/signed-token", actionContext.getResumeUrl(expiresAt));
+
+        ArgumentCaptor<Duration> ttlArgumentCaptor = ArgumentCaptor.forClass(Duration.class);
+
+        verify(approvalTokens).toSignedTokenIfConfigured(anyString(), ttlArgumentCaptor.capture());
+
+        assertThat(ttlArgumentCaptor.getValue())
+            .isGreaterThan(Duration.ofDays(60))
+            .isLessThanOrEqualTo(Duration.ofDays(60)
+                .plus(ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN));
+    }
+
+    @Test
+    void testMintShortResumeIdUsesTheInProcessMinter() {
+        ApprovalShortResumeIds approvalShortResumeIds = mock(ApprovalShortResumeIds.class);
+        Instant expiresAt = Instant.parse("2030-01-01T00:00:00Z");
+
+        when(approvalShortResumeIds.mint("token", expiresAt)).thenReturn("short-id");
+
+        ActionContextImpl actionContext = ActionContextImpl.builder(
+            "approval", 1, "requestApproval", false, mock(CacheManager.class), mock(DataStorage.class),
+            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null,
+            null)
+            .approvalShortResumeIds(approvalShortResumeIds)
+            .jobId(200L)
+            .publicUrl("https://example.com")
+            .build();
+
+        assertEquals("short-id", actionContext.mintShortResumeId("token", expiresAt));
+    }
+
+    @Test
+    void testMintShortResumeIdIsNullWhenTheMinterFails() {
+        ApprovalShortResumeIds approvalShortResumeIds = mock(ApprovalShortResumeIds.class);
+
+        when(approvalShortResumeIds.mint(anyString(), any())).thenThrow(new IllegalStateException("full"));
+
+        ActionContextImpl actionContext = ActionContextImpl.builder(
+            "approval", 1, "requestApproval", false, mock(CacheManager.class), mock(DataStorage.class),
+            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null,
+            null)
+            .approvalShortResumeIds(approvalShortResumeIds)
+            .build();
+
+        assertNull(actionContext.mintShortResumeId("token", Instant.now()));
+        assertNull(createActionContext().mintShortResumeId("token", Instant.now()));
+
+        verify(approvalShortResumeIds).mint(eq("token"), any());
     }
 
     private static ActionContextImpl createActionContext() {

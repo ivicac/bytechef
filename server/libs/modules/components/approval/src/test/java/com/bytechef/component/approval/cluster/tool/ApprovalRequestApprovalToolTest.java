@@ -123,7 +123,7 @@ class ApprovalRequestApprovalToolTest {
 
     @Test
     void testToolReturnsSuspendedToolResultAfterInvokingPerform() throws Exception {
-        when(actionContextAware.getResumeUrl()).thenReturn(RESUME_URL);
+        when(actionContextAware.getResumeUrl(any())).thenReturn(RESUME_URL);
 
         MultipleConnectionsToolFunction toolFunction = getToolFunction();
 
@@ -141,7 +141,7 @@ class ApprovalRequestApprovalToolTest {
 
     @Test
     void testToolStoresItsInputParametersAsTheApprovalFormParameters() throws Exception {
-        when(actionContextAware.getResumeUrl()).thenReturn(RESUME_URL);
+        when(actionContextAware.getResumeUrl(any())).thenReturn(RESUME_URL);
 
         getToolFunction().apply(
             inputParameters, connectionParameters, extensions, Map.of(), clusterElementContextAware);
@@ -162,7 +162,7 @@ class ApprovalRequestApprovalToolTest {
     @Test
     void testToolInEditorEnvironmentNeitherSendsTheRequestNorSuspends() throws Exception {
         when(clusterElementContextAware.isEditorEnvironment()).thenReturn(true);
-        when(actionContextAware.getResumeUrl()).thenReturn(RESUME_URL);
+        when(actionContextAware.getResumeUrl(any())).thenReturn(RESUME_URL);
 
         Object result = getToolFunction().apply(
             inputParameters, connectionParameters, extensions, Map.of(), clusterElementContextAware);
@@ -174,7 +174,7 @@ class ApprovalRequestApprovalToolTest {
 
     @Test
     void testToolThrowsToolSuspensionExceptionWithCauseWhenApprovalRequestCannotBeSent() {
-        when(actionContextAware.getResumeUrl()).thenReturn(null);
+        when(actionContextAware.getResumeUrl(any())).thenReturn(null);
 
         MultipleConnectionsToolFunction toolFunction = getToolFunction();
 
@@ -195,7 +195,7 @@ class ApprovalRequestApprovalToolTest {
 
     @Test
     void testToolThrowsToolSuspensionExceptionWithCauseWhenSuspendFails() {
-        when(actionContextAware.getResumeUrl()).thenReturn(RESUME_URL);
+        when(actionContextAware.getResumeUrl(any())).thenReturn(RESUME_URL);
 
         IllegalStateException suspendFailure = new IllegalStateException("suspend failed");
 

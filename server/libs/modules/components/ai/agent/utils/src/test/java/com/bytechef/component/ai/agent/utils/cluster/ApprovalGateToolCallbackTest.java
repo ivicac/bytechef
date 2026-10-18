@@ -96,7 +96,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallDeliversDefaultChatChannelAndSuspends() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
@@ -128,7 +128,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallRecordsApprovalRequiredAuditEvent() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(actionContext.getJobId()).thenReturn(42L);
 
@@ -153,7 +153,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallScopesTheApprovalRequiredEventToTheRunEnvironmentAndWorkspace() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(actionContext.getEnvironmentId()).thenReturn(2L);
         when(actionContext.getJobPrincipalId()).thenReturn(5L);
@@ -178,7 +178,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallRecordsTheEnvironmentWithoutAWorkspaceWhenNoResolverIsPresent() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(actionContext.getEnvironmentId()).thenReturn(1L);
         when(actionContext.getJobPrincipalId()).thenReturn(5L);
@@ -200,7 +200,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallLeavesTheEventUnscopedWhenTheRunHasNoEnvironmentOrWorkspace() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
         when(actionContext.getEnvironmentId()).thenReturn(null);
 
@@ -242,7 +242,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testEditorEnvironmentSkipsChannelDeliveryButStillSuspends() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
@@ -258,7 +258,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testEditorEnvironmentEmitsApprovalRequestEventThroughToolContext() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
 
         SseTransport sseTransport = new SseTransport();
@@ -295,7 +295,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFanOutDeliversRemainingChannelsWhenOneFails() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         when(clusterElementDefinitionService.executeApprovalChannel(
@@ -322,7 +322,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFanOutFailsWhenEveryChannelFails() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         when(clusterElementDefinitionService.executeApprovalChannel(
@@ -344,7 +344,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testConfiguredApprovalExpiryDrivesSuspendExpiry() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(

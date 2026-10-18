@@ -77,7 +77,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         ComponentConnection componentConnection = new ComponentConnection(
             "googleMail", 1, 5L, Map.of("access_token", "expired"), AuthorizationType.OAUTH2_AUTHORIZATION_CODE);
@@ -116,7 +116,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         when(clusterElementDefinitionService.executeApprovalChannel(
             eq("slack"), anyInt(), anyString(), any(), anyString(), any(), any()))
@@ -155,7 +155,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         when(clusterElementDefinitionService.executeApprovalChannel(
             anyString(), anyInt(), anyString(), any(), anyString(), any(), any()))
@@ -199,7 +199,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         Parameters inputParameters = ParametersFactory.create(Map.of("expiresIn", 4, "expiresInUnit", "HOURS"));
         Parameters extensions = ParametersFactory.create(
@@ -243,7 +243,7 @@ class ApprovalRequestApprovalActionTest {
 
         when(context.isEditorEnvironment()).thenReturn(true);
         when(context.getJobId()).thenReturn(42L);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         Parameters inputParameters = ParametersFactory.create(Map.of("formTitle", "Approve this"));
         Parameters extensions = ParametersFactory.create(Map.of());
@@ -293,7 +293,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         Parameters inputParameters = ParametersFactory.create(Map.of("expiresIn", 4, "expiresInUnit", "HOURS"));
         Parameters extensions = ParametersFactory.create(Map.of());
@@ -328,7 +328,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         Parameters inputParameters = ParametersFactory.create(Map.of());
         Parameters extensions = ParametersFactory.create(Map.of());
@@ -364,7 +364,7 @@ class ApprovalRequestApprovalActionTest {
 
         when(context.isEditorEnvironment()).thenReturn(true);
         when(context.getJobId()).thenReturn(null);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         Parameters inputParameters = ParametersFactory.create(Map.of());
         Parameters extensions = ParametersFactory.create(Map.of());
@@ -391,7 +391,7 @@ class ApprovalRequestApprovalActionTest {
         ActionContextAware context = mock(ActionContextAware.class);
 
         when(context.isEditorEnvironment()).thenReturn(false);
-        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+        when(context.getResumeUrl(any())).thenReturn("https://example.com/api/job/resume/abc");
 
         performFunction.apply(
             ParametersFactory.create(Map.of()), Map.of(), ParametersFactory.create(Map.of()), context);

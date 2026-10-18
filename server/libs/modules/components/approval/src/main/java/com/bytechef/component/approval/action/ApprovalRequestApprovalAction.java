@@ -62,6 +62,8 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.RESUME_ID;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.SHORT_RESUME_ID;
 
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.approval.util.FieldType;
@@ -304,7 +306,9 @@ public class ApprovalRequestApprovalAction {
 
         ActionContextAware actionContextAware = (ActionContextAware) context;
 
-        String resumeUrl = actionContextAware.getResumeUrl();
+        Instant expiresAt = getExpiresAt(inputParameters);
+
+        String resumeUrl = actionContextAware.getResumeUrl(expiresAt);
 
         if (resumeUrl == null) {
             throw new IllegalStateException(
@@ -313,8 +317,6 @@ public class ApprovalRequestApprovalAction {
         }
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
-
-        Instant expiresAt = getExpiresAt(inputParameters);
 
         if (actionContextAware.isEditorEnvironment()) {
             // Editor test runs skip channels (they are production transports), but the canvas test run listens on
@@ -357,6 +359,9 @@ public class ApprovalRequestApprovalAction {
             return;
         }
 
+        String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+        String shortResumeId = actionContextAware.mintShortResumeId(resumeId, expiresAt);
+
         int deliveredCount = 0;
         List<String> failureMessages = new ArrayList<>();
         List<Exception> failureExceptions = new ArrayList<>();
@@ -369,6 +374,13 @@ public class ApprovalRequestApprovalAction {
                 new HashMap<>(inputParameters.toMap()), new HashMap<>(approvalChannel.getParameters()));
 
             channelInputParameters.put(EXPIRES_AT, expiresAt.toString());
+            channelInputParameters.put(RESUME_ID, resumeId);
+
+            if (shortResumeId == null) {
+                channelInputParameters.remove(SHORT_RESUME_ID);
+            } else {
+                channelInputParameters.put(SHORT_RESUME_ID, shortResumeId);
+            }
 
             try {
                 clusterElementDefinitionService.executeApprovalChannel(
