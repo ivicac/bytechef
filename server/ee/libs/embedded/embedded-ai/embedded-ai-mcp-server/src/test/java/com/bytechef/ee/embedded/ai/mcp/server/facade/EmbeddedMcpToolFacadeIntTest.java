@@ -26,6 +26,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
@@ -36,6 +37,7 @@ import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationComponentService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
@@ -70,6 +72,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.tool.execution.config.ToolExecutionConfiguration;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
@@ -87,6 +90,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -138,6 +142,9 @@ class EmbeddedMcpToolFacadeIntTest {
 
     @Autowired
     private Encryption encryption;
+
+    @MockitoBean
+    private IntegrationAuditPublisher integrationAuditPublisher;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -497,7 +504,9 @@ class EmbeddedMcpToolFacadeIntTest {
 
         assertThat(result)
             .containsEntry("status", "approval_required")
-            .containsEntry("jobId", 5);
+            .containsEntry("jobId", 5)
+            .doesNotContainKey("resumeToken");
+
         assertThat(getToolExecutionEvents()).singleElement()
             .satisfies(toolExecutionEvent -> {
                 assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.APPROVAL_REQUIRED);
@@ -820,6 +829,44 @@ class EmbeddedMcpToolFacadeIntTest {
     }
 
     @Test
+    void testClusterElementToolCallOfAnUnknownExternalUserIsRecordedAsConnectionRequiredWithoutConnectedUser() {
+        McpTool mcpTool = saveMcpTool("post", Map.of(), true);
+
+        insertIntegration("httpClient");
+
+        long boundIntegrationId = insertIntegration("httpClient Code");
+
+        mcpIntegrationComponentService.create(mcpTool.getMcpComponentId(), boundIntegrationId);
+
+        mockPostClusterElementDefinition();
+
+        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+
+        when(componentDefinition.isConnectionRequired()).thenReturn(true);
+        when(componentDefinitionService.getComponentDefinition("httpClient", 1)).thenReturn(componentDefinition);
+
+        FunctionToolCallback<Map<String, Object>, Object> functionToolCallback =
+            embeddedMcpToolFacade.getFunctionToolCallback(
+                mcpTool, UNCONNECTED_EXTERNAL_USER_ID, Environment.PRODUCTION, "tenant");
+
+        assertThat(functionToolCallback).isNotNull();
+
+        functionToolCallback.call("{}");
+
+        assertThat(getToolExecutionEvents()).singleElement()
+            .satisfies(toolExecutionEvent -> {
+                assertThat(toolExecutionEvent.surface()).isEqualTo(ToolExecutionSurface.MCP_EMBEDDED);
+                assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.CONNECTION_REQUIRED);
+                assertThat(toolExecutionEvent.externalUserId()).isEqualTo(UNCONNECTED_EXTERNAL_USER_ID);
+                assertThat(toolExecutionEvent.connectedUserId()).isNull();
+                assertThat(toolExecutionEvent.connectionId()).isNull();
+                assertThat(toolExecutionEvent.environment()).isEqualTo(Environment.PRODUCTION.ordinal());
+            });
+
+        verifyNoInteractions(clusterElementDefinitionFacade);
+    }
+
+    @Test
     void testWorkflowToolRunIsRecordedAgainstItsJob() {
         ToolCallback toolCallback = getConnectedWorkflowToolCallback(List.of());
 
@@ -904,6 +951,7 @@ class EmbeddedMcpToolFacadeIntTest {
                 assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.CONNECTION_REQUIRED);
                 assertThat(toolExecutionEvent.toolName()).isEqualTo("mappedTool");
                 assertThat(toolExecutionEvent.externalUserId()).isEqualTo(UNCONNECTED_EXTERNAL_USER_ID);
+                assertThat(toolExecutionEvent.connectedUserId()).isNull();
                 assertThat(toolExecutionEvent.integrationInstanceId()).isNull();
                 assertThat(toolExecutionEvent.jobId()).isNull();
             });
@@ -1240,6 +1288,7 @@ class EmbeddedMcpToolFacadeIntTest {
     static class FacadeIntTestConfiguration {
 
         @Bean
+        @SuppressWarnings("unchecked")
         EmbeddedMcpToolFacade embeddedMcpToolFacade(
             ClusterElementDefinitionFacade clusterElementDefinitionFacade,
             ClusterElementDefinitionService clusterElementDefinitionService,
@@ -1258,12 +1307,14 @@ class EmbeddedMcpToolFacadeIntTest {
             WorkflowService workflowService) {
 
             return new EmbeddedMcpToolFacade(
-                clusterElementDefinitionFacade, clusterElementDefinitionService, componentDefinitionService,
-                connectedUserService, evaluator, integrationInstanceConfigurationService,
+                mock(ObjectProvider.class), clusterElementDefinitionFacade, clusterElementDefinitionService,
+                componentDefinitionService, connectedUserService, evaluator, integrationInstanceConfigurationService,
                 integrationInstanceConfigurationWorkflowService, integrationInstanceService,
-                integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jwtTokenService,
-                mcpComponentService, mcpIntegrationComponentService, mcpIntegrationInstanceConfigurationWorkflowService,
-                mcpIntegrationInstanceToolService, mcpServerService, principalJobFacade, "http://localhost:8080",
+                integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter,
+                mock(JobResumeFacade.class), mock(JobService.class), jwtTokenService, mcpComponentService,
+                mcpIntegrationComponentService, mcpIntegrationInstanceConfigurationWorkflowService,
+                mcpIntegrationInstanceToolService,
+                mcpServerService, principalJobFacade, "http://localhost:8080",
                 taskExecutionService, taskFileStorage, toolExecutionRecorder, workflowService);
         }
     }

@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.config.ApplicationProperties;
@@ -37,7 +38,7 @@ import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.web.mcp.McpAnonymousAuthenticationToken;
-import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.config.ToolExecutionConfiguration;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -65,11 +66,12 @@ class EmbeddedMcpServerConfigurationIntTest {
         ComponentDefinitionService.class, ConnectedUserService.class, EnvironmentService.class, Evaluator.class,
         IntegrationInstanceConfigurationService.class, IntegrationInstanceConfigurationWorkflowService.class,
         IntegrationInstanceService.class, IntegrationInstanceWorkflowService.class, IntegrationService.class,
-        JobCompletionAwaiter.class, JobResumeFacade.class, JwtTokenService.class, McpComponentService.class,
+        JobCompletionAwaiter.class, JobResumeFacade.class, JobService.class, JwtTokenService.class,
+        McpComponentService.class, McpIntegrationComponentService.class,
         McpIntegrationInstanceConfigurationService.class, McpIntegrationInstanceConfigurationWorkflowService.class,
         McpIntegrationInstanceToolService.class, McpServerService.class, McpTenantIssuerResolver.class,
         McpToolService.class, PrincipalJobFacade.class, SigningKeyService.class, TaskExecutionService.class,
-        TaskFileStorage.class, ToolExecutionRecorder.class, WorkflowService.class);
+        TaskFileStorage.class, WorkflowService.class);
 
     @AfterEach
     void afterEach() {

@@ -62,6 +62,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.tool.execution.WorkflowToolRunResult;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
@@ -333,20 +334,29 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             inputs.put(triggerName, resolvedTriggerInputs);
             inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, triggerName);
 
-            long jobId = principalJobFacade.createJob(
-                new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
-                projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
+            ToolExecutionEvent.Builder eventBuilder = ToolExecutionEvent
+                .builder(PlatformType.AUTOMATION, ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW,
+                    toolName)
+                .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
+                .mcpServerId(mcpServerId)
+                .workspaceId(workspaceId);
 
-            return toolExecutionRecorder.record(
-                ToolExecutionEvent
-                    .builder(ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW, toolName)
-                    .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
-                    .mcpServerId(mcpServerId)
-                    .workspaceId(workspaceId)
-                    .jobId(jobId),
-                () -> getWorkflowRunResult(
-                    jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
-                        .join()));
+            WorkflowToolRunResult workflowToolRunResult = toolExecutionRecorder.record(
+                eventBuilder,
+                () -> {
+                    long jobId = principalJobFacade.createJob(
+                        new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
+                        projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
+
+                    eventBuilder.jobId(jobId);
+
+                    return getWorkflowRunResult(
+                        jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
+                            .join());
+                },
+                WorkflowToolRunResult::getOutcome);
+
+            return workflowToolRunResult.result();
         };
     }
 
@@ -550,7 +560,15 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     }
 
     public @Nullable Object resolveApprovalAndAwait(String resumeToken, Map<String, Object> data, long jobId) {
-        JobResumeFacade.JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        JobResumeFacade.JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeJob(resumeToken, data);
+        } catch (ApprovalInputException approvalInputException) {
+            return Map.of(
+                "status", "approval_input_required",
+                "message", approvalInputException.getMessage() + " Resolve the approval through its form instead.");
+        }
 
         if (outcome != JobResumeFacade.JobResumeOutcome.OK) {
             return Map.of(

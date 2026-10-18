@@ -74,6 +74,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorderImpl;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -339,6 +340,18 @@ class AutomationMcpToolFacadeIntTest {
 
         assertThat((Map<String, Object>) result).containsEntry("status", "approval_unavailable");
         assertThat((String) ((Map<String, Object>) result).get("message")).contains("INVALID_ID");
+    }
+
+    @Test
+    void testResolveApprovalAndAwaitReportsTheMissingInputsOfAnApprovalForm() {
+        when(jobResumeFacade.resumeJob("token", Map.of("approved", true)))
+            .thenThrow(new ApprovalInputException(List.of("'Reason' is required")));
+
+        Object result = facade.resolveApprovalAndAwait("token", Map.of("approved", true), 5L);
+
+        assertThat((Map<String, Object>) result).containsEntry("status", "approval_input_required");
+        assertThat((String) ((Map<String, Object>) result).get("message")).contains("'Reason' is required");
+        verify(jobService, never()).getJob(anyLong());
     }
 
     @Test
