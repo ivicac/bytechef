@@ -16,11 +16,6 @@
 
 package com.bytechef.platform.webhook.web.rest;
 
-import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.facade.JobFacade;
-import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.commons.util.MapUtils;
-import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.webhook.annotation.ConditionalOnWebhook;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
@@ -28,11 +23,11 @@ import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -84,42 +79,20 @@ public class ApprovalController {
         """;
 
     private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
-    private final JobFacade jobFacade;
-    private final JobService jobService;
+    private final JobResumeFacade jobResumeFacade;
 
     @SuppressFBWarnings("EI")
-    public ApprovalController(
-        ObjectProvider<ApprovalTokens> approvalTokensProvider, JobFacade jobFacade, JobService jobService) {
-
+    public ApprovalController(ObjectProvider<ApprovalTokens> approvalTokensProvider, JobResumeFacade jobResumeFacade) {
         this.approvalTokensProvider = approvalTokensProvider;
-        this.jobFacade = jobFacade;
-        this.jobService = jobService;
+        this.jobResumeFacade = jobResumeFacade;
     }
 
     // CSRF-exempt: the path token is the capability, and the GET only renders this confirmation form
     @SuppressFBWarnings("SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING")
-    @PostMapping(value = "/approvals/{id}", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> approveFromConfirmationPage(@PathVariable String id) {
-        Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
-
-        if (approvalIdOptional.isEmpty()) {
-            return htmlResponse(HttpStatus.BAD_REQUEST, "This approval link is not valid.");
-        }
-
-        JobResumeOutcome outcome;
-
-        try {
-            outcome = jobResumeFacade.resumeApproval(id);
-        } catch (ApprovalInputException approvalInputException) {
-            return htmlResponse(HttpStatus.BAD_REQUEST, FORM_REQUIRED_MESSAGE);
-        }
-
-        return htmlResponse(getStatus(outcome), getMessage(outcome));
-    }
-
-    @SuppressFBWarnings("SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING")
-    @PostMapping("/approvals/{id}")
-    public ResponseEntity<Void> approve(@PathVariable String id) {
+    @RequestMapping(method = {
+        RequestMethod.GET, RequestMethod.POST
+    }, value = "/approvals/{id}")
+    public ResponseEntity<?> approve(@PathVariable String id) {
         Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
 
         if (approvalIdOptional.isEmpty()) {
@@ -130,37 +103,30 @@ public class ApprovalController {
         JobResumeOutcome outcome;
 
         try {
-            outcome = jobResumeFacade.resumeApproval(id);
+            outcome = jobResumeFacade.resumeApproval(approvalIdOptional.get());
         } catch (ApprovalInputException approvalInputException) {
-            return ResponseEntity.badRequest()
-                .build();
+            return invalidApprovalInput(approvalInputException);
         }
 
-        return TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
-            resume(approvalId);
-
-            return ResponseEntity.noContent()
-                .build();
-        });
+        return ResponseEntity.status(getStatus(outcome))
+            .build();
     }
 
-    private void resume(ApprovalId approvalId) {
-        long jobId = approvalId.getJobId();
+    private Optional<ApprovalId> parseApprovalId(String id) {
+        Optional<String> innerTokenOptional = resolveInnerToken(id);
 
-        Job job = jobService.getJob(jobId);
-
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
-
-        if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null && taskExecutionResumeId != null) {
-            jobFacade.resumeJob(jobId, taskExecutionResumeId, Map.of("approved", approvalId.isApproved()));
-
-            return;
+        if (innerTokenOptional.isEmpty()) {
+            return Optional.empty();
         }
 
-        jobFacade.resumeApproval(jobId, approvalId.getUuidAsString(), approvalId.isApproved());
+        try {
+            return Optional.of(ApprovalId.parse(innerTokenOptional.get()));
+        } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
+            return Optional.empty();
+        }
     }
 
-    private Optional<String> resolveInnerToken(String id) {
+    private Optional<ApprovalId> parseApprovalId(String id) {
         ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
 
         if (approvalTokens == null) {
@@ -209,5 +175,26 @@ public class ApprovalController {
         return ResponseEntity.status(pageStatus)
             .contentType(MediaType.TEXT_HTML)
             .body(RESULT_PAGE.formatted(message));
+    }
+
+    private static HttpStatus getStatus(JobResumeOutcome outcome) {
+        return switch (outcome) {
+            case OK -> HttpStatus.NO_CONTENT;
+            case INVALID_ID, STREAMING_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
+            case GONE -> HttpStatus.GONE;
+            case JOB_FAILED -> HttpStatus.UNPROCESSABLE_CONTENT;
+            case NOT_YET_SUSPENDED -> HttpStatus.CONFLICT;
+        };
+    }
+
+    private static ResponseEntity<ProblemDetail> invalidApprovalInput(ApprovalInputException approvalInputException) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, approvalInputException.getMessage());
+
+        problemDetail.setProperty("errors", approvalInputException.getErrors());
+
+        return ResponseEntity.badRequest()
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .body(problemDetail);
     }
 }

@@ -17,31 +17,21 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.facade.JobFacade;
-import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.ApprovalId;
-import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
-import com.bytechef.platform.workflow.execution.facade.JobResumeFacadeImpl;
-import com.bytechef.platform.workflow.execution.facade.TaskStateFacade;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokensImpl;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -53,9 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -87,7 +75,7 @@ class ApprovalControllerIntTest {
     private ApprovalTokens approvalTokens;
 
     @MockitoBean
-    private JobFacade jobFacade;
+    private JobResumeFacade jobResumeFacade;
 
     @MockitoBean
     private JobService jobService;
@@ -97,7 +85,7 @@ class ApprovalControllerIntTest {
 
     @BeforeEach
     void beforeEach() {
-        when(jobService.getJob(JOB_ID)).thenReturn(new Job(JOB_ID));
+        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.OK);
     }
 
     @Test
@@ -108,7 +96,17 @@ class ApprovalControllerIntTest {
     void setUp() {
         when(jobService.tryClaimResume(any())).thenReturn(true);
 
-        stubTaskExecution(null);
+        assertThat(captureResumedApprovalId()).hasToString(approvalId.toString());
+    }
+
+    @Test
+    void testApproveResumesJobForLegacyUnsignedToken() throws Exception {
+        ApprovalId approvalId = ApprovalId.of(JOB_ID, false);
+
+        mockMvc.perform(get("/approvals/{id}", approvalId.toString()))
+            .andExpect(status().isNoContent());
+
+        assertThat(captureResumedApprovalId()).hasToString(approvalId.toString());
     }
 
     @Nested
@@ -179,282 +177,63 @@ class ApprovalControllerIntTest {
         void testApproveDoesNotResumeAJobThatIsStillRunning() throws Exception {
             stubJob(Job.Status.STARTED, Map.of());
 
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isConflict());
-
-            verify(jobFacade, never()).resumeApproval(anyLong(), anyString(), anyBoolean());
-        }
+        verify(jobResumeFacade, never()).resumeApproval(any(ApprovalId.class));
     }
 
-    @Nested
-    class SuspendedJob {
-
-        private String storedJobResumeId;
-
-        @BeforeEach
-        void setUp() {
-            storedJobResumeId = JobResumeId.of(TENANT_ID, JOB_ID)
-                .toString();
-
-            stubJob(Job.Status.STOPPED, suspendedMetadata(Map.of()));
-        }
-
-        @Test
-        void testApproveResumesSuspendedJobThroughItsSuspendedTaskExecution() throws Exception {
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isNoContent());
-
-            verify(jobFacade).resumeClaimedJob(JOB_ID, TASK_EXECUTION_ID, Map.of("approved", true));
-            verify(jobFacade, never()).resumeApproval(anyLong(), anyString(), anyBoolean());
-        }
-
-        @Test
-        void testApproveRejectsAnUnsignedTokenForASuspendedApproval() throws Exception {
-            stubJob(Job.Status.STOPPED, suspendedMetadata(Map.of(MetadataConstants.APPROVAL_RESUME, true)));
-
-            String unsignedToken = ApprovalId.of(TENANT_ID, JOB_ID, true)
-                .toString();
-
-            mockMvc.perform(post("/approvals/{id}", unsignedToken))
-                .andExpect(status().isBadRequest());
-
-            mockMvc.perform(post("/approvals/{id}", unsignedToken).accept(MediaType.TEXT_HTML))
-                .andExpect(status().isBadRequest());
-
-            mockMvc.perform(get("/approvals/{id}", unsignedToken))
-                .andExpect(status().isBadRequest());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveRejectsATamperedTokenForASuspendedApproval() throws Exception {
-            stubJob(Job.Status.STOPPED, suspendedMetadata(Map.of(MetadataConstants.APPROVAL_RESUME, true)));
-
-            String signedToken = sign(ApprovalId.of(TENANT_ID, JOB_ID, true));
-
-            int signatureStart = signedToken.lastIndexOf('.') + 1;
-            char replacement = signedToken.charAt(signatureStart) == 'A' ? 'B' : 'A';
-
-            String tamperedToken =
-                signedToken.substring(0, signatureStart) + replacement + signedToken.substring(signatureStart + 1);
-
-            mockMvc.perform(post("/approvals/{id}", tamperedToken))
-                .andExpect(status().isBadRequest());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveResolvesASuspendedApprovalForASignedToken() throws Exception {
-            stubJob(Job.Status.STOPPED, suspendedMetadata(Map.of(MetadataConstants.APPROVAL_RESUME, true)));
-
-            TaskExecution taskExecution = new TaskExecution();
-
-            taskExecution.setWorkflowTask(
-                new WorkflowTask(
-                    Map.of("name", "approval_1", "type", "approval/v1/requestApproval", "parameters", Map.of())));
-
-            when(taskExecutionService.fetchTaskExecution(TASK_EXECUTION_ID)).thenReturn(Optional.of(taskExecution));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isNoContent());
-
-            verify(jobFacade).resumeClaimedJob(JOB_ID, TASK_EXECUTION_ID, Map.of("approved", true));
-        }
-
-        @Test
-        void testApproveRejectionReachesSuspendedTaskAsApprovedFalse() throws Exception {
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, false))))
-                .andExpect(status().isNoContent());
-
-            verify(jobFacade).resumeClaimedJob(JOB_ID, TASK_EXECUTION_ID, Map.of("approved", false));
-        }
-
-        @Test
-        void testApproveConsumesTheSuspendAndTheApprovalPair() throws Exception {
-            String pairUuid = UUID.randomUUID()
-                .toString();
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, pairUuid, true, 3L))))
-                .andExpect(status().isNoContent());
-
-            ArgumentCaptor<Job> jobArgumentCaptor = ArgumentCaptor.forClass(Job.class);
-
-            verify(jobService).update(jobArgumentCaptor.capture());
-
-            Job updatedJob = jobArgumentCaptor.getValue();
-
-            assertThat(updatedJob.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID)).isEqualTo(storedJobResumeId);
-            assertThat(updatedJob.getMetadata(MetadataConstants.CONSUMED_APPROVAL_IDS)).isEqualTo(List.of(pairUuid));
-            assertThat(updatedJob.getMetadata(MetadataConstants.LAST_RESUMED_TASK_EXECUTION_ID))
-                .isEqualTo(TASK_EXECUTION_ID);
-        }
-
-        @Test
-        void testApproveRejectsAReplayedApprovalPair() throws Exception {
-            String pairUuid = UUID.randomUUID()
-                .toString();
-
-            stubJob(
-                Job.Status.STOPPED,
-                suspendedMetadata(Map.of(MetadataConstants.CONSUMED_APPROVAL_IDS, List.of(pairUuid))));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, pairUuid, false, 3L))))
-                .andExpect(status().isGone());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveRejectsAnAlreadyResolvedSuspend() throws Exception {
-            stubJob(
-                Job.Status.STOPPED,
-                suspendedMetadata(Map.of(MetadataConstants.CONSUMED_JOB_RESUME_ID, storedJobResumeId)));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isGone());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveRejectsAnExpiredSuspend() throws Exception {
-            stubTaskExecution(
-                Instant.now()
-                    .minusSeconds(60));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isGone());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveRejectsALinkIssuedForAnEarlierSuspend() throws Exception {
-            stubJob(
-                Job.Status.STOPPED,
-                suspendedMetadata(Map.of(MetadataConstants.LAST_RESUMED_TASK_EXECUTION_ID, 5L)));
-
-            String pairUuid = UUID.randomUUID()
-                .toString();
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, pairUuid, true, 3L))))
-                .andExpect(status().isBadRequest());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveRejectsALinkIssuedAfterTheSuspend() throws Exception {
-            String pairUuid = UUID.randomUUID()
-                .toString();
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, pairUuid, true, 9L))))
-                .andExpect(status().isBadRequest());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testApproveReturnsConflictWhileTheJobIsStillRunning() throws Exception {
-            stubJob(Job.Status.STARTED, suspendedMetadata(Map.of()));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isConflict());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testGetRendersAConfirmationPageWithoutResuming() throws Exception {
-            mockMvc.perform(get("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
-                .andExpect(content().string(containsString("<form method=\"post\">")));
-
-            verifyNeverResumed();
-            verify(jobService, never()).getJob(anyLong());
-        }
-
-        @Test
-        void testFormPostRendersTheOutcomePage() throws Exception {
-            mockMvc.perform(
-                post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))).accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("your response was recorded")));
-
-            verify(jobFacade).resumeClaimedJob(JOB_ID, TASK_EXECUTION_ID, Map.of("approved", true));
-        }
-
-        @Test
-        void testApproveOfAnApprovalWithRequiredFormInputsAsksForTheForm() throws Exception {
-            stubApprovalWithARequiredInput();
-
-            mockMvc.perform(
-                post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))).accept(MediaType.TEXT_HTML))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Open the approval form")));
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, true))))
-                .andExpect(status().isBadRequest());
-
-            verifyNeverResumed();
-        }
-
-        @Test
-        void testRejectionOfAnApprovalWithRequiredFormInputsResumesTheJob() throws Exception {
-            stubApprovalWithARequiredInput();
-
-            mockMvc.perform(post("/approvals/{id}", sign(ApprovalId.of(TENANT_ID, JOB_ID, false))))
-                .andExpect(status().isNoContent());
-
-            verify(jobFacade).resumeClaimedJob(
-                JOB_ID, TASK_EXECUTION_ID, Map.of("approved", false, "reason", ""));
-        }
-
-        private void stubApprovalWithARequiredInput() {
-            stubJob(Job.Status.STOPPED, suspendedMetadata(Map.of(MetadataConstants.APPROVAL_RESUME, true)));
-
-            TaskExecution taskExecution = new TaskExecution();
-
-            taskExecution.setWorkflowTask(
-                new WorkflowTask(
-                    Map.of(
-                        "name", "approval_1", "type", "approval/v1/requestApproval", "parameters",
-                        Map.of("inputs", List.of(Map.of("fieldName", "reason", "fieldType", 6, "required", true))))));
-
-            when(taskExecutionService.fetchTaskExecution(TASK_EXECUTION_ID)).thenReturn(Optional.of(taskExecution));
-        }
-
-        private Map<String, Object> suspendedMetadata(Map<String, Object> additionalMetadata) {
-            Map<String, Object> metadata = new HashMap<>();
-
-            metadata.put(MetadataConstants.JOB_RESUME_ID, storedJobResumeId);
-            metadata.put(MetadataConstants.TASK_EXECUTION_RESUME_ID, TASK_EXECUTION_ID);
-
-            metadata.putAll(additionalMetadata);
-
-            return metadata;
-        }
-
-        private void verifyNeverResumed() {
-            verify(jobFacade, never()).resumeClaimedJob(anyLong(), any(), anyMap());
-            verify(jobFacade, never()).resumeApproval(anyLong(), anyString(), anyBoolean());
-        }
+    @Test
+    void testApproveRejectsMalformedToken() throws Exception {
+        mockMvc.perform(post("/approvals/{id}", "not-a-token"))
+            .andExpect(status().isBadRequest());
+
+        verify(jobResumeFacade, never()).resumeApproval(any(ApprovalId.class));
     }
 
-    private String sign(ApprovalId approvalId) {
+    @Test
+    void testApproveIsGoneWhenTheApprovalWasAlreadyResolved() throws Exception {
+        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.GONE);
+
+        mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
+            .andExpect(status().isGone());
+    }
+
+    @Test
+    void testApproveIsUnprocessableWhenTheJobFailed() throws Exception {
+        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.JOB_FAILED);
+
+        mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
+            .andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void testApproveIsConflictWhileTheJobIsNotYetSuspended() throws Exception {
+        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.NOT_YET_SUSPENDED);
+
+        mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    void testApproveIsBadRequestWhenTheApprovalFormRequiresInputs() throws Exception {
+        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenThrow(
+            new ApprovalInputException(List.of("'reason' is required")));
+
+        mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors[0]").value("'reason' is required"));
+    }
+
+    private ApprovalId captureResumedApprovalId() {
+        ArgumentCaptor<ApprovalId> approvalIdCaptor = ArgumentCaptor.forClass(ApprovalId.class);
+
+        verify(jobResumeFacade).resumeApproval(approvalIdCaptor.capture());
+
+        return approvalIdCaptor.getValue();
+    }
+
+    private String signedApprovalToken() {
+        ApprovalId approvalId = ApprovalId.of(JOB_ID, true);
+
         return approvalTokens.toSignedToken(approvalId.toString(), Duration.ofHours(1));
-    }
-
-    private void stubJob(Job.Status status, Map<String, ?> metadata) {
-        Job job = new Job(JOB_ID);
-
-        job.setMetadata(metadata);
-        job.setStatus(status);
-
-        when(jobService.getJob(JOB_ID)).thenReturn(job);
     }
 
     private void stubTaskExecution(Instant expiresAt) {
