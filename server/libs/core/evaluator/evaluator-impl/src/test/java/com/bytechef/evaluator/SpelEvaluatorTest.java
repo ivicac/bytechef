@@ -568,37 +568,37 @@ public class SpelEvaluatorTest {
 
     @Test
     public void testConcatRejectsMaps() {
-        ExpressionEvaluationException expressionEvaluationException = assertThrowsExactly(
-            ExpressionEvaluationException.class,
+        IllegalArgumentException illegalArgumentException = assertThrowsExactly(
+            IllegalArgumentException.class,
             () -> EVALUATOR.evaluate(
                 Map.of("concatenated", "=concat('a', ${map})"), Map.of("map", Map.of("key", "value"))));
 
         assertEquals(
             "Invalid arguments for concat. Expected all arguments to be lists, or none of them to be a list or a map.",
-            expressionEvaluationException.getMessage());
+            illegalArgumentException.getMessage());
     }
 
     @Test
     public void testConcatRejectsMixedStringsAndLists() {
-        ExpressionEvaluationException expressionEvaluationException = assertThrowsExactly(
-            ExpressionEvaluationException.class,
+        IllegalArgumentException illegalArgumentException = assertThrowsExactly(
+            IllegalArgumentException.class,
             () -> EVALUATOR.evaluate(
                 Map.of("concatenated", "=concat('a', 'b', {'c'})"), Collections.emptyMap()));
 
         assertEquals(
             "Invalid arguments for concat. Expected all arguments to be lists, or none of them to be a list or a map.",
-            expressionEvaluationException.getMessage());
+            illegalArgumentException.getMessage());
     }
 
     @Test
     public void testConcatRejectsNoArguments() {
-        ExpressionEvaluationException expressionEvaluationException = assertThrowsExactly(
-            ExpressionEvaluationException.class,
+        IllegalArgumentException illegalArgumentException = assertThrowsExactly(
+            IllegalArgumentException.class,
             () -> EVALUATOR.evaluate(Map.of("concatenated", "=concat()"), Collections.emptyMap()));
 
         assertEquals(
             "Invalid number of arguments for concat. Expected at least 1, got 0",
-            expressionEvaluationException.getMessage());
+            illegalArgumentException.getMessage());
     }
 
     @Test
