@@ -2,6 +2,7 @@ import {SidebarInset, SidebarProvider} from '@/components/ui/sidebar';
 import {Toaster} from '@/components/ui/sonner';
 import useFetchInterceptor from '@/config/useFetchInterceptor';
 import {useUserGuiding} from '@/hooks/useUserGuiding';
+import {useCloseProjectsLeftSidebarOnLeave} from '@/pages/automation/project/hooks/useCloseProjectsLeftSidebarOnLeave';
 import {PlatformType, usePlatformTypeStore} from '@/pages/home/stores/usePlatformTypeStore';
 import {bootstrapCommandBar} from '@/shared/command-bar/commandBarBootstrap';
 import {useCommandBarStore} from '@/shared/command-bar/useCommandBarStore';
@@ -155,6 +156,8 @@ function App() {
     const standaloneRoute = isStandaloneRoute(location.pathname);
 
     useRegisterNavigationCommands(ff_2396 ? navigation : NO_NAVIGATION_ITEMS);
+
+    useCloseProjectsLeftSidebarOnLeave(location.pathname);
 
     useEffect(() => {
         if (ff_2396) {
