@@ -15,13 +15,13 @@ import {useOnLogout} from '@/shared/hooks/useOnLogout';
 import {MobileTopNavigation} from '@/shared/layout/MobileTopNavigation';
 import {TrialBanner} from '@/shared/layout/TrialBanner';
 import {AppSidebar} from '@/shared/layout/app-sidebar/AppSidebar';
+import {isDevelopmentOnlyHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {
     type NavigationItemI,
     automationNavigation,
     embeddedNavigation,
     platformNavigation,
 } from '@/shared/navigation/navigationItems';
-import {isDevelopmentOnlyHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {isStandaloneRoute} from '@/shared/navigation/standaloneRoutes';
 import {useDevelopmentOnlyRouteGuard} from '@/shared/navigation/useDevelopmentOnlyRouteGuard';
 import useAppSidebarStore from '@/shared/stores/useAppSidebarStore';
@@ -180,6 +180,8 @@ function App() {
     const standaloneRoute = isStandaloneRoute(location.pathname);
 
     useRegisterNavigationCommands(ff_2396 ? navigation : NO_NAVIGATION_ITEMS);
+
+    useCloseProjectsLeftSidebarOnLeave(location.pathname);
 
     useEffect(() => {
         if (ff_2396) {
