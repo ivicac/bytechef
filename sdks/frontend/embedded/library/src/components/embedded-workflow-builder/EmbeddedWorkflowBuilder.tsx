@@ -73,7 +73,6 @@ const EmbeddedWorkflowBuilder = ({
     workflowUuid,
 }: EmbeddedWorkflowBuilderProps) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const propsRef = useRef({connectionDialogAllowed, environment, includeComponents, jwtToken});
 
     useEmbedInit({
         baseUrl,

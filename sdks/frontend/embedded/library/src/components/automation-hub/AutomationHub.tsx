@@ -1,6 +1,5 @@
 'use client';
 
-import {useEffect, useRef} from 'react';
 import {useRef} from 'react';
 
 import useEmbedInit from '../../shared/useEmbedInit';
@@ -238,25 +237,6 @@ const AutomationHub = ({
     theme,
 }: AutomationHubProps) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const propsRef = useRef({
-        connectionDialogAllowed,
-        defaultLayout,
-        editWorkflowAllowed,
-        environment,
-        includeComponents,
-        jwtToken,
-        layoutSwitcherAllowed,
-        sharedConnectionIds,
-        tabs,
-        theme,
-    });
-
-    // Kept up to date via an effect (rather than assigned during render) so that a late prop
-    // change is still visible to the next EMBED_READY handshake, without mutating the ref while
-    // rendering -- postMessage delivery is always async relative to React's render/effect cycle,
-    // so this remains observably identical to an in-render assignment.
-    useEffect(() => {
-        propsRef.current = {
 
     useEmbedInit({
         baseUrl,
@@ -272,47 +252,8 @@ const AutomationHub = ({
             sharedConnectionIds,
             tabs,
             theme,
-        };
-    }, [
-        connectionDialogAllowed,
-        defaultLayout,
-        editWorkflowAllowed,
-        environment,
-        includeComponents,
-        jwtToken,
-        layoutSwitcherAllowed,
-        sharedConnectionIds,
-        tabs,
-        theme,
-    ]);
-
-    useEffect(() => {
-        const targetOrigin = new URL(baseUrl).origin;
-
-        const sendInitMessage = () => {
-            if (iframeRef.current && iframeRef.current.contentWindow) {
-                iframeRef.current.contentWindow.postMessage(
-                    {
-                        type: 'EMBED_INIT',
-                        params: propsRef.current,
-                    },
-                    targetOrigin
-                );
-            }
-        };
-
-        const handleMessage = (event: MessageEvent) => {
-            if (event.origin === targetOrigin && event.data.type === 'EMBED_READY') {
-                sendInitMessage();
-            }
-        };
-
-        window.addEventListener('message', handleMessage);
-
-        return () => {
-            window.removeEventListener('message', handleMessage);
-        };
-    }, [baseUrl]);
+        },
+    });
 
     return (
         <div className={className}>

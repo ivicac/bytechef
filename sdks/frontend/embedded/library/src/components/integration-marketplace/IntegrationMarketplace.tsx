@@ -131,11 +131,7 @@ const IntegrationMarketplace = ({
     const [connectingIntegrationId, setConnectingIntegrationId] = useState<string | null>(null);
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const propsRef = useRef({environment, jwtToken, theme});
 
-    useEffect(() => {
-        propsRef.current = {environment, jwtToken, theme};
-    }, [environment, jwtToken, theme]);
     useEmbedInit({baseUrl, iframeRef, params: {environment, jwtToken, theme}});
 
     const handleConnectDialogClose = useCallback(() => {
@@ -155,13 +151,6 @@ const IntegrationMarketplace = ({
         const handleMessage = (event: MessageEvent) => {
             if (event.origin !== targetOrigin || event.source !== iframeRef.current?.contentWindow) {
                 return;
-            }
-
-            if (event.data?.type === 'EMBED_READY') {
-                iframeRef.current?.contentWindow?.postMessage(
-                    {params: propsRef.current, type: 'EMBED_INIT'},
-                    targetOrigin
-                );
             }
 
             if (event.data?.type === CONNECT_MESSAGE_TYPE && typeof event.data.integrationId === 'string') {
