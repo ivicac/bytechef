@@ -2,37 +2,61 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import WorkflowComponentsIcon, {
     WorkflowComponentIconDefinitionType,
 } from '@/pages/automation/project/components/projects-sidebar/components/WorkflowComponentsIcon';
-import {useMemo} from 'react';
+import useElementWidth from '@/shared/hooks/useElementWidth';
+import {useMemo, useRef} from 'react';
 import {twMerge} from 'tailwind-merge';
 
+const ICON_SLOT_WIDTH_PX = 38;
+const ICON_TRAILING_MARGIN_PX = 8;
+const OVERFLOW_PILL_WIDTH_PX = 28;
+
 interface WorkflowComponentsListProps {
-    /* Icons collapse to a single +N pill below the 2xl viewport breakpoint. Hosts with a FIXED-width
-     * container (the workflow editor's w-80 sidebar card) must pass false — their available width never
-     * tracks the viewport, so the collapse would hide icons that always fit. */
-    collapseOnSmallViewport?: boolean;
     filteredComponentNames: string[];
+    fitToWidth?: boolean;
     maxIcons?: number;
     workflowComponentDefinitions: Record<string, WorkflowComponentIconDefinitionType | undefined>;
     workflowTaskDispatcherDefinitions: Record<string, WorkflowComponentIconDefinitionType | undefined>;
 }
 
 const WorkflowComponentsList = ({
-    collapseOnSmallViewport = true,
     filteredComponentNames,
+    fitToWidth = false,
     maxIcons = 7,
     workflowComponentDefinitions,
     workflowTaskDispatcherDefinitions,
 }: WorkflowComponentsListProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const containerWidth = useElementWidth(containerRef);
+
+    const collapseOnSmallViewport = !fitToWidth;
+
+    const visibleIconCount = useMemo(() => {
+        if (!fitToWidth || containerWidth === 0) {
+            return maxIcons;
+        }
+
+        const iconsFittingWithoutPill = Math.floor((containerWidth + ICON_TRAILING_MARGIN_PX) / ICON_SLOT_WIDTH_PX);
+
+        if (filteredComponentNames.length <= Math.min(iconsFittingWithoutPill, maxIcons)) {
+            return maxIcons;
+        }
+
+        const iconsFittingBesidePill = Math.floor((containerWidth - OVERFLOW_PILL_WIDTH_PX) / ICON_SLOT_WIDTH_PX);
+
+        return Math.max(0, Math.min(iconsFittingBesidePill, maxIcons));
+    }, [containerWidth, filteredComponentNames.length, fitToWidth, maxIcons]);
+
     const memoizedFilteredComponentNamesList = useMemo(
         () => ({
-            icons: filteredComponentNames.slice(0, maxIcons),
-            remainingComponents: filteredComponentNames.slice(maxIcons),
+            icons: filteredComponentNames.slice(0, visibleIconCount),
+            remainingComponents: filteredComponentNames.slice(visibleIconCount),
         }),
-        [filteredComponentNames, maxIcons]
+        [filteredComponentNames, visibleIconCount]
     );
 
     return (
-        <div className="flex">
+        <div className={twMerge('flex', fitToWidth && 'min-w-0 flex-1 overflow-hidden')} ref={containerRef}>
             <div className={twMerge('flex', collapseOnSmallViewport && 'hidden 2xl:flex')}>
                 {memoizedFilteredComponentNamesList.icons.map((name) => (
                     <WorkflowComponentsIcon
@@ -73,13 +97,13 @@ const WorkflowComponentsList = ({
                 </div>
             )}
 
-            {filteredComponentNames?.length > maxIcons && (
+            {filteredComponentNames?.length > visibleIconCount && (
                 <div className={twMerge(collapseOnSmallViewport && 'hidden 2xl:block')}>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <div className="flex size-7 items-center justify-center self-center rounded-full border border-stroke-neutral-secondary bg-background p-1">
                                 <span className="self-center text-xs font-medium text-content-neutral-secondary">
-                                    +{filteredComponentNames.length - maxIcons}
+                                    +{filteredComponentNames.length - visibleIconCount}
                                 </span>
                             </div>
                         </TooltipTrigger>
