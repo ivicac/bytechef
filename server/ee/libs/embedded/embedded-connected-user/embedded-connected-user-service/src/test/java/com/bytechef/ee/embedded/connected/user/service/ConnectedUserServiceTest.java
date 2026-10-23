@@ -179,6 +179,19 @@ class ConnectedUserServiceTest {
         verify(connectedUserRepository, never()).save(any(ConnectedUser.class));
     }
 
+    @Test
+    void testSdkCreateKeepsAcceptingSurroundingWhitespaceButRejectsReservedSegment() {
+        when(connectedUserRepository.save(any(ConnectedUser.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ConnectedUser connectedUser = connectedUserService.createConnectedUser(" customer-z ", Environment.PRODUCTION);
+
+        assertThat(connectedUser.getExternalId()).isEqualTo(" customer-z ");
+
+        assertThatThrownBy(() -> connectedUserService.createConnectedUser("workflows", Environment.PRODUCTION))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
     private static ConnectedUser existingConnectedUser(int version) {
         ConnectedUser connectedUser = new ConnectedUser(Map.of(), null, true, "customer-z", 7L, null, version);
 
