@@ -2186,25 +2186,37 @@ components:
       required:
         - "enabled"
     AutomationProjectCodeWorkflowDeployResult:
+      type: "object"
+      properties:
         warnings:
           type: "array"
           items:
+            type: "string"
     AutomationProjectCodeWorkflow:
-      description: "An automation workflow catalog project, without the underlying automation project id."
+      type: "object"
+      description: "An automation workflow project, without the underlying automation project id."
+      properties:
         name:
           description: "The name of the automation workflow project."
+          type: "string"
         kind:
           description: "Whether copying this project's templates creates a per-user copy or a shared reference."
+          type: "string"
           enum:
             - "COPY"
             - "REFERENCE"
         workflowTemplates:
-          description: "The list of catalog workflow templates belonging to this project."
+          description: "The list of automation workflow templates belonging to this project."
+          type: "array"
+          items:
             $ref: "#/components/schemas/AutomationProjectCodeWorkflowTemplate"
     AutomationProjectCodeWorkflowTemplate:
-      description: "A catalog workflow template within an automation workflow project."
+      type: "object"
+      description: "An automation workflow template within an automation workflow project."
+      properties:
         label:
           description: "The label of the workflow."
+          type: "string"
     ConnectedUserProjectWorkflow:
       description: "A group of tasks that make one logical workflow."
       type: "object"

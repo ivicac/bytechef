@@ -47,7 +47,7 @@ public interface IntegrationInstanceConfigurationFacade {
 
     IntegrationInstanceConfigurationDTO getIntegrationInstanceConfiguration(long id);
 
-    List<IntegrationInstanceConfigurationConnectedUserDTO> getIntegrationInstanceConfigurationConnectedUsers(long id);
+    IntegrationInstanceConfigurationDTO getConnectedUserIntegrationInstanceConfiguration(long id);
 
     List<Tag> getIntegrationInstanceConfigurationTags();
 
