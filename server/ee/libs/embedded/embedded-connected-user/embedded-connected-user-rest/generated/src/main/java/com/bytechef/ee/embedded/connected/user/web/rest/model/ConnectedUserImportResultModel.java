@@ -25,7 +25,7 @@ import jakarta.annotation.Generated;
  */
 
 @JsonTypeName("ConnectedUserImportResult")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-23T23:44:29.402755+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:13.056308+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ConnectedUserImportResultModel {
 
   private @Nullable Integer createdCount;
@@ -72,7 +72,7 @@ public class ConnectedUserImportResultModel {
    * The rows that were rejected.
    * @return rejectedRows
    */
-  @Valid 
+  
   @Schema(name = "rejectedRows", description = "The rows that were rejected.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("rejectedRows")
   public List<@Valid ConnectedUserImportRejectedRowModel> getRejectedRows() {
