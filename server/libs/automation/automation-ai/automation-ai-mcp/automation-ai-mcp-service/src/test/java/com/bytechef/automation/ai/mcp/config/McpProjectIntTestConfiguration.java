@@ -35,6 +35,8 @@ import com.bytechef.platform.configuration.facade.ComponentConnectionFacade;
 import com.bytechef.platform.configuration.facade.WebhookTriggerTestFacade;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.configuration.facade.WorkflowFacadeImpl;
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.web.McpServerTypeDefinition;
 import com.bytechef.platform.workflow.validator.WorkflowValidatorFacade;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -84,6 +86,32 @@ public class McpProjectIntTestConfiguration {
     @Bean
     Evaluator evaluator() {
         return SpelEvaluator.create();
+    }
+
+    /**
+     * Stands in for the package-private {@code AutomationMcpServerTypeDefinition} of the automation MCP GraphQL module,
+     * which is not on this module's classpath, so {@code McpServerFacadeImpl} sees AUTOMATION servers as administrable
+     * through the shared MCP server operations, as it does in the application.
+     */
+    @Bean
+    McpServerTypeDefinition automationMcpServerTypeDefinition() {
+        return new McpServerTypeDefinition() {
+
+            @Override
+            public PlatformType getType() {
+                return PlatformType.AUTOMATION;
+            }
+
+            @Override
+            public boolean isSharedAdministration() {
+                return true;
+            }
+
+            @Override
+            public String resolvePath(String secretKey) {
+                return "/api/automation/" + secretKey + "/mcp";
+            }
+        };
     }
 
     @Bean
