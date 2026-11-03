@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowConditions;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowFilter;
@@ -40,13 +41,15 @@ class DataTableUpdateRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformUpdatesEveryRecordMatchingConditions() throws Exception {
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
         DataTableRowConditions conditions = DataTableRowConditions.anyOf(
             List.of(
                 List.of(new DataTableRowFilter("status", Operation.EQUALS, "BOT")),
                 List.of(new DataTableRowFilter("priority", Operation.GREATER, "3"))));
         Map<String, Object> values = Map.of("status", "HUMAN");
 
-        when(dataTableRowService.updateRows("conversations", conditions, values, 1L))
+        when(dataTableRowService.updateRows(dataTableRef, conditions, values))
             .thenReturn(
                 List.of(
                     new DataTableRow(3, Map.of("status", "HUMAN")), new DataTableRow(4, Map.of("status", "HUMAN"))));

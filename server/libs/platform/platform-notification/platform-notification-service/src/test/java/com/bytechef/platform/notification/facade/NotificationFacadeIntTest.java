@@ -44,9 +44,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.aopalliance.intercept.MethodInvocation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -54,10 +56,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.expression.SecurityExpressionRoot;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionOperations;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
@@ -976,5 +986,78 @@ public class NotificationFacadeIntTest {
     @EnableMethodSecurity
     @TestConfiguration
     static class MethodSecurityConfiguration {
+
+        @Bean
+        static MethodSecurityExpressionHandler methodSecurityExpressionHandler() {
+            return new TenantAdminMethodSecurityExpressionHandler();
+        }
+    }
+
+    private static final class TenantAdminMethodSecurityExpressionHandler
+        extends DefaultMethodSecurityExpressionHandler {
+
+        @Override
+        public EvaluationContext createEvaluationContext(
+            Supplier<? extends Authentication> authentication, MethodInvocation methodInvocation) {
+
+            StandardEvaluationContext standardEvaluationContext =
+                (StandardEvaluationContext) super.createEvaluationContext(authentication, methodInvocation);
+
+            TenantAdminMethodSecurityExpressionRoot tenantAdminMethodSecurityExpressionRoot =
+                new TenantAdminMethodSecurityExpressionRoot(authentication, methodInvocation);
+
+            tenantAdminMethodSecurityExpressionRoot.setAuthorizationManagerFactory(getAuthorizationManagerFactory());
+            tenantAdminMethodSecurityExpressionRoot.setDefaultRolePrefix(getDefaultRolePrefix());
+
+            standardEvaluationContext.setRootObject(tenantAdminMethodSecurityExpressionRoot);
+
+            return standardEvaluationContext;
+        }
+    }
+
+    public static final class TenantAdminMethodSecurityExpressionRoot
+        extends SecurityExpressionRoot<MethodInvocation> implements MethodSecurityExpressionOperations {
+
+        private final Object target;
+
+        private Object filterObject;
+        private Object returnObject;
+
+        private TenantAdminMethodSecurityExpressionRoot(
+            Supplier<? extends Authentication> authentication, MethodInvocation methodInvocation) {
+
+            super(authentication, methodInvocation);
+
+            this.target = methodInvocation.getThis();
+        }
+
+        public boolean isTenantAdmin() {
+            return hasAuthority(AuthorityConstants.ADMIN);
+        }
+
+        @Override
+        public Object getFilterObject() {
+            return filterObject;
+        }
+
+        @Override
+        public Object getReturnObject() {
+            return returnObject;
+        }
+
+        @Override
+        public Object getThis() {
+            return target;
+        }
+
+        @Override
+        public void setFilterObject(Object filterObject) {
+            this.filterObject = filterObject;
+        }
+
+        @Override
+        public void setReturnObject(Object returnObject) {
+            this.returnObject = returnObject;
+        }
     }
 }

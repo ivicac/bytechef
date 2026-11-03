@@ -30,6 +30,7 @@ import com.bytechef.platform.data.table.configuration.repository.DataTableReposi
 import com.bytechef.platform.data.table.configuration.repository.DataTableWebhookRepository;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.test.config.h2.H2DataSourceConfiguration;
 import java.util.List;
@@ -50,6 +51,7 @@ import org.springframework.context.annotation.Import;
 class DataTableWebhookServiceIntTest {
 
     private static final long DEV_ENVIRONMENT_ID = 0;
+    private static final DataTableRef HOOKS = new DataTableRef("hooks", DEV_ENVIRONMENT_ID);
     private static final String WORKFLOW_EXECUTION_ID = WorkflowExecutionId.of(
         PlatformType.AUTOMATION, 1, "workflow-uuid", "trigger_1")
         .toString();
@@ -82,10 +84,10 @@ class DataTableWebhookServiceIntTest {
     @Test
     void testAddWebhookStoresTheWorkflowExecutionId() {
         long webhookId = dataTableWebhookService.addWebhook(
-            "hooks", WORKFLOW_EXECUTION_ID, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED, DEV_ENVIRONMENT_ID);
+            HOOKS, WORKFLOW_EXECUTION_ID, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED);
 
         assertTrue(
-            dataTableWebhookService.listWebhooks("hooks", DEV_ENVIRONMENT_ID)
+            dataTableWebhookService.listWebhooks(HOOKS)
                 .stream()
                 .anyMatch(webhook -> webhook.id() == webhookId &&
                     WORKFLOW_EXECUTION_ID.equals(webhook.workflowExecutionId())));
@@ -94,7 +96,7 @@ class DataTableWebhookServiceIntTest {
     @Test
     void testAddWebhookAlsoStoresTheWebhookUrlSoThePreviousVersionCanDeliverAfterARollback() {
         long webhookId = dataTableWebhookService.addWebhook(
-            "hooks", WORKFLOW_EXECUTION_ID, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED, DEV_ENVIRONMENT_ID);
+            HOOKS, WORKFLOW_EXECUTION_ID, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED);
 
         DataTableWebhook dataTableWebhook = dataTableWebhookRepository.findById(webhookId)
             .orElseThrow();
@@ -122,7 +124,7 @@ class DataTableWebhookServiceIntTest {
 
         assertEquals(
             List.of(WORKFLOW_EXECUTION_ID),
-            dataTableWebhookService.listWebhooks("hooks", DEV_ENVIRONMENT_ID)
+            dataTableWebhookService.listWebhooks(HOOKS)
                 .stream()
                 .map(DataTableWebhookService.Webhook::workflowExecutionId)
                 .toList());
@@ -136,12 +138,12 @@ class DataTableWebhookServiceIntTest {
         IllegalArgumentException illegalArgumentException = assertThrows(
             IllegalArgumentException.class,
             () -> dataTableWebhookService.addWebhook(
-                "hooks", workflowExecutionId, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED, DEV_ENVIRONMENT_ID));
+                HOOKS, workflowExecutionId, WEBHOOK_URL, DataTableWebhookType.RECORD_CREATED));
 
         assertTrue(illegalArgumentException.getMessage()
             .contains("workflow execution id"));
         assertTrue(
-            dataTableWebhookService.listWebhooks("hooks", DEV_ENVIRONMENT_ID)
+            dataTableWebhookService.listWebhooks(HOOKS)
                 .isEmpty());
     }
 }

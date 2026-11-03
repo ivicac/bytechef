@@ -16,7 +16,11 @@
 
 package com.bytechef.automation.configuration.instance.config;
 
+import com.bytechef.automation.configuration.audit.ProjectAuditPublisher;
+import com.bytechef.automation.configuration.audit.ProjectDeploymentAuditPublisher;
+import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditPublisher;
 import com.bytechef.automation.configuration.instance.accessor.ProjectDeploymentJobPrincipalAccessor;
+import com.bytechef.automation.configuration.security.ProjectVisibilityPolicy;
 import com.bytechef.automation.configuration.service.ProjectDeploymentServiceImpl;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowServiceImpl;
 import com.bytechef.automation.configuration.service.ProjectServiceImpl;
@@ -25,10 +29,12 @@ import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
 import com.bytechef.jackson.config.JacksonConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.security.domain.ResourceVisibilityPolicyRegistry;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
@@ -39,12 +45,18 @@ import tools.jackson.databind.ObjectMapper;
  */
 @EnableAutoConfiguration
 @Import({
-    JacksonConfiguration.class, LiquibaseConfiguration.class, ProjectDeploymentJobPrincipalAccessor.class,
+    JacksonConfiguration.class, LiquibaseConfiguration.class, ProjectAuditPublisher.class,
+    ProjectDeploymentAuditPublisher.class, ProjectDeploymentJobPrincipalAccessor.class,
     ProjectDeploymentServiceImpl.class, ProjectDeploymentWorkflowServiceImpl.class, ProjectServiceImpl.class,
-    ProjectWorkflowServiceImpl.class
+    ProjectWorkflowAuditPublisher.class, ProjectWorkflowServiceImpl.class
 })
 @Configuration
 public class ProjectDeploymentJobPrincipalAccessorIntTestConfiguration {
+
+    @Bean
+    ResourceVisibilityPolicyRegistry resourceVisibilityPolicyRegistry() {
+        return new ResourceVisibilityPolicyRegistry(List.of(new ProjectVisibilityPolicy()));
+    }
 
     @EnableJdbcAuditing(auditorAwareRef = "auditorProvider", dateTimeProviderRef = "auditingDateTimeProvider")
     public static class ProjectDeploymentJobPrincipalAccessorIntTestJdbcConfiguration

@@ -25,7 +25,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "WorkflowExecution", description = "Contains information about execution of a Integration workflow.")
 @JsonTypeName("WorkflowExecution")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-03T14:37:43.769977+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-04T23:11:11.788743+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class WorkflowExecutionModel {
 
   private List<com.bytechef.platform.workflow.execution.web.rest.model.@Valid FocusPathElementModel> focusPath = new ArrayList<>();

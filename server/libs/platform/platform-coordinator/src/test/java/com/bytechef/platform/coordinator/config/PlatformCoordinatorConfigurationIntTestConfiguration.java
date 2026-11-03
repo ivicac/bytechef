@@ -18,6 +18,7 @@ package com.bytechef.platform.coordinator.config;
 
 import static org.mockito.Mockito.mock;
 
+import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.repository.JobRepository;
 import com.bytechef.atlas.execution.repository.TaskExecutionRepository;
 import com.bytechef.atlas.execution.service.JobService;
@@ -25,6 +26,9 @@ import com.bytechef.atlas.execution.service.JobServiceImpl;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.execution.service.TaskExecutionServiceImpl;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.encryption.Encryption;
 import com.bytechef.encryption.EncryptionImpl;
@@ -39,6 +43,7 @@ import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.repository.NotificationRepository;
 import com.bytechef.platform.notification.service.NotificationService;
 import com.bytechef.platform.notification.service.NotificationServiceImpl;
+import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
@@ -71,6 +76,11 @@ public class PlatformCoordinatorConfigurationIntTestConfiguration {
     }
 
     @Bean
+    JobFacade jobFacade() {
+        return mock(JobFacade.class);
+    }
+
+    @Bean
     JobService jobService(JobRepository jobRepository) {
         return new JobServiceImpl(jobRepository);
     }
@@ -93,6 +103,26 @@ public class PlatformCoordinatorConfigurationIntTestConfiguration {
     @Bean
     NotificationService notificationService(NotificationRepository notificationRepository) {
         return new NotificationServiceImpl(notificationRepository);
+    }
+
+    @Bean
+    PrincipalJobFacade principalJobFacade() {
+        return mock(PrincipalJobFacade.class);
+    }
+
+    @Bean
+    ProjectDeploymentService projectDeploymentService() {
+        return mock(ProjectDeploymentService.class);
+    }
+
+    @Bean
+    ProjectService projectService() {
+        return mock(ProjectService.class);
+    }
+
+    @Bean
+    ProjectWorkflowService projectWorkflowService() {
+        return mock(ProjectWorkflowService.class);
     }
 
     @Bean

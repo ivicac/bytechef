@@ -48,6 +48,7 @@ import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
@@ -82,6 +83,7 @@ class DataTableWebhookEventListenerIntTest {
 
     private static final long DEV_ENVIRONMENT_ID = 0;
     private static final long TEST_ENVIRONMENT_ID = 1;
+    private static final DataTableRef ORDERS = new DataTableRef("orders", DEV_ENVIRONMENT_ID);
 
     private static final String CREATED_ID = workflowExecutionId("created");
     private static final String OTHER_CREATED_ID = workflowExecutionId("other_created");
@@ -152,7 +154,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
         register("orders", OTHER_CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
-        dataTableRowService.insertRows("orders", List.of(row("a"), row("b"), row("c")), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRows(ORDERS, List.of(row("a"), row("b"), row("c")));
 
         assertThat(triggerEvents()).hasSize(6)
             .extracting(event -> event.getWorkflowExecutionId()
@@ -170,7 +172,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", disabledId, RECORD_CREATED, DEV_ENVIRONMENT_ID);
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
-        dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRow(ORDERS, row("a"));
 
         assertThat(triggerEvents()).singleElement()
             .satisfies(event -> assertThat(event.getWorkflowExecutionId()
@@ -184,7 +186,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", OTHER_CREATED_ID, RECORD_CREATED, TEST_ENVIRONMENT_ID);
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
-        dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRow(ORDERS, row("a"));
 
         assertThat(triggerEvents()).singleElement()
             .satisfies(event -> assertThat(event.getWorkflowExecutionId()
@@ -197,8 +199,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
         DataTableRow dataTableRow = dataTableRowService.insertRow(
-            "orders", Map.of("name", "a", "shipped_on", "2026-01-31", "created_at", "2026-01-31T10:00:00+02:00"),
-            DEV_ENVIRONMENT_ID);
+            ORDERS, Map.of("name", "a", "shipped_on", "2026-01-31", "created_at", "2026-01-31T10:00:00+02:00"));
 
         TriggerWebhookEvent triggerWebhookEvent = triggerEvents().getFirst();
 
@@ -232,7 +233,7 @@ class DataTableWebhookEventListenerIntTest {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
         transactionTemplate.executeWithoutResult(status -> {
-            dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+            dataTableRowService.insertRow(ORDERS, row("a"));
 
             assertThat(triggerEvents()).isEmpty();
         });
@@ -247,7 +248,7 @@ class DataTableWebhookEventListenerIntTest {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
         transactionTemplate.executeWithoutResult(status -> {
-            dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+            dataTableRowService.insertRow(ORDERS, row("a"));
 
             status.setRollbackOnly();
         });
@@ -260,8 +261,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
         applicationEventPublisher.publishEvent(
-            new DataTableWebhookEvent(
-                "orders", RECORD_CREATED, List.of(new DataTableRow(7L, row("a"))), DEV_ENVIRONMENT_ID));
+            new DataTableWebhookEvent(ORDERS, RECORD_CREATED, List.of(new DataTableRow(7L, row("a")))));
 
         assertThat(triggerEvents()).hasSize(1);
     }
@@ -282,7 +282,7 @@ class DataTableWebhookEventListenerIntTest {
 
         dataTableWebhookRepository.save(unparsableDataTableWebhook);
 
-        dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRow(ORDERS, row("a"));
 
         assertThat(triggerEvents()).hasSize(1);
         assertThat(capturedOutput).contains("bm90LWFuLWlk", "could not be parsed");
@@ -291,11 +291,11 @@ class DataTableWebhookEventListenerIntTest {
     @Test
     void testFailingRegistrationLookupIsLoggedAndTheWriteSucceeds(CapturedOutput capturedOutput) {
         doThrow(new IllegalStateException("database unavailable")).when(dataTableWebhookService)
-            .listWebhooks("orders", DEV_ENVIRONMENT_ID);
+            .listWebhooks(ORDERS);
 
-        DataTableRow dataTableRow = dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+        DataTableRow dataTableRow = dataTableRowService.insertRow(ORDERS, row("a"));
 
-        assertThat(dataTableRowService.getRow("orders", dataTableRow.id(), DEV_ENVIRONMENT_ID)).isNotNull();
+        assertThat(dataTableRowService.getRow(ORDERS, dataTableRow.id())).isNotNull();
         assertThat(triggerEvents()).isEmpty();
         assertThat(capturedOutput).contains("could not be listed");
     }
@@ -304,7 +304,7 @@ class DataTableWebhookEventListenerIntTest {
     void testRegistrationLookupThatFailsInTheDatabaseDoesNotRollBackTheWrite(CapturedOutput capturedOutput) {
         register("orders", DELETED_ID, RECORD_DELETED, DEV_ENVIRONMENT_ID);
 
-        dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRow(ORDERS, row("a"));
 
         jdbcTemplate.execute("ALTER TABLE data_table_webhook RENAME TO data_table_webhook_unavailable");
 
@@ -312,7 +312,7 @@ class DataTableWebhookEventListenerIntTest {
             TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
             transactionTemplate.executeWithoutResult(
-                status -> dataTableRowService.deleteAllRows("orders", DEV_ENVIRONMENT_ID));
+                status -> dataTableRowService.deleteAllRows(ORDERS));
         } finally {
             jdbcTemplate.execute("ALTER TABLE data_table_webhook_unavailable RENAME TO data_table_webhook");
         }
@@ -328,7 +328,7 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", EDITOR_TEST_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
-        dataTableRowService.insertRows("orders", List.of(row("a"), row("b")), DEV_ENVIRONMENT_ID);
+        dataTableRowService.insertRows(ORDERS, List.of(row("a"), row("b")));
 
         ArgumentCaptor<WebhookRequest> webhookRequestArgumentCaptor = ArgumentCaptor.forClass(WebhookRequest.class);
 
@@ -357,7 +357,7 @@ class DataTableWebhookEventListenerIntTest {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
         transactionTemplate.executeWithoutResult(status -> {
-            dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+            dataTableRowService.insertRow(ORDERS, row("a"));
 
             status.setRollbackOnly();
         });
@@ -375,7 +375,7 @@ class DataTableWebhookEventListenerIntTest {
                 any(WebhookRequest.class));
 
         try {
-            dataTableRowService.insertRow("orders", row("a"), DEV_ENVIRONMENT_ID);
+            dataTableRowService.insertRow(ORDERS, row("a"));
         } finally {
             reset(workflowNodeTestOutputFacade);
         }
@@ -389,18 +389,17 @@ class DataTableWebhookEventListenerIntTest {
         register("orders", CREATED_ID, RECORD_CREATED, DEV_ENVIRONMENT_ID);
 
         dataTableRowService.insertRows(
-            "orders", IntStream.range(0, 300)
+            ORDERS, IntStream.range(0, 300)
                 .mapToObj(index -> row("row " + index))
-                .toList(),
-            DEV_ENVIRONMENT_ID);
+                .toList());
 
         assertThat(triggerEvents()).hasSize(300);
     }
 
     private long register(String baseName, String workflowExecutionId, DataTableWebhookType type, long environmentId) {
         return dataTableWebhookService.addWebhook(
-            baseName, workflowExecutionId, "http://localhost:9555/webhooks/" + workflowExecutionId, type,
-            environmentId);
+            new DataTableRef(baseName, environmentId), workflowExecutionId,
+            "http://localhost:9555/webhooks/" + workflowExecutionId, type);
     }
 
     private static Map<String, Object> row(String name) {

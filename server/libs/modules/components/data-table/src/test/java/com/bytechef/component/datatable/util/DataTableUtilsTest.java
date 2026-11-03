@@ -36,6 +36,8 @@ import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.data.table.domain.DataTableResolution;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowConditions;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowFilter;
@@ -44,6 +46,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +71,8 @@ class DataTableUtilsTest {
     void testActionColumnOptionsOfferTheRowIdFirstAndFilterItBySearchText() throws Exception {
         DataTableService dataTableService = mock(DataTableService.class);
 
+        when(dataTableService.fetchDataTableResolution("orders", 0L))
+            .thenReturn(Optional.of(new DataTableResolution(1L, new DataTableRef("orders", 0L))));
         when(dataTableService.listTables(0L)).thenReturn(
             List.of(
                 new DataTableInfo(

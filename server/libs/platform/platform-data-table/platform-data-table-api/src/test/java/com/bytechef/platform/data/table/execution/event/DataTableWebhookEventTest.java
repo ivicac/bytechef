@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,7 +41,7 @@ class DataTableWebhookEventTest {
         Map<String, Object> values = new HashMap<>(Map.of("tags", tags));
 
         DataTableWebhookEvent dataTableWebhookEvent = new DataTableWebhookEvent(
-            "items", DataTableWebhookType.RECORD_CREATED, List.of(new DataTableRow(1L, values)), 0);
+            new DataTableRef("items", 0), DataTableWebhookType.RECORD_CREATED, List.of(new DataTableRow(1L, values)));
 
         tags.add("changed");
         nestedMap.put("name", "Banana");
@@ -71,7 +72,7 @@ class DataTableWebhookEventTest {
 
         assertThrows(
             NullPointerException.class,
-            () -> new DataTableWebhookEvent("items", DataTableWebhookType.RECORD_CREATED, rows, 0));
+            () -> new DataTableWebhookEvent(new DataTableRef("items", 0), DataTableWebhookType.RECORD_CREATED, rows));
     }
 
     @Test
@@ -80,6 +81,6 @@ class DataTableWebhookEventTest {
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> new DataTableWebhookEvent("items", DataTableWebhookType.RECORD_CREATED, rows, 0));
+            () -> new DataTableWebhookEvent(new DataTableRef("items", 0), DataTableWebhookType.RECORD_CREATED, rows));
     }
 }

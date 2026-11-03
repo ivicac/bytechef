@@ -17,13 +17,14 @@
 package com.bytechef.component.datatable.action;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,9 @@ class DataTableClearTableActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformDeletesAllRowsInOneStep() throws Exception {
-        when(dataTableRowService.deleteAllRows("conversations", 1L))
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
+        when(dataTableRowService.deleteAllRows(dataTableRef))
             .thenReturn(List.of(new DataTableRow(1, Map.of()), new DataTableRow(2, Map.of())));
 
         assertEquals(
@@ -44,7 +47,7 @@ class DataTableClearTableActionTest extends AbstractDataTableActionTest {
             perform(
                 DataTableClearTableAction.of(dataTableService, dataTableRowService), Map.of("table", "conversations")));
 
-        verify(dataTableRowService, never()).listRows(anyString(), anyInt(), anyInt(), anyLong());
-        verify(dataTableRowService, never()).deleteRow(anyString(), anyLong(), anyLong());
+        verify(dataTableRowService, never()).listRows(any(DataTableRef.class), anyInt(), anyInt());
+        verify(dataTableRowService, never()).deleteRow(any(DataTableRef.class), anyLong());
     }
 }

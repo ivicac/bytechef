@@ -299,6 +299,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Text Message",
     "workflowNodeDescription": null
   }, {
@@ -786,6 +787,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Broadcast Text Message",
     "workflowNodeDescription": null
   } ],
@@ -1082,6 +1084,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Text Message",
     "type": {
       "name": "TOOLS",
@@ -1569,6 +1572,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Broadcast Text Message",
     "type": {
       "name": "TOOLS",

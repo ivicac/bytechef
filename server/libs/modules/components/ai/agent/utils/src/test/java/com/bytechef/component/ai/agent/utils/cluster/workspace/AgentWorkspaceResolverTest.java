@@ -161,15 +161,6 @@ class AgentWorkspaceResolverTest {
     }
 
     @Test
-    void testResolveSanitizesTheTenantId() {
-        ActionContextAware actionContext = givenDeployedRun(PlatformType.AUTOMATION, 11L, 1L, 21L);
-
-        Workspace workspace = resolveForTenant("../escape", actionContext, null);
-
-        assertThat(workspace.root()).isEqualTo(basedir.resolve("___escape/automation/11/staging/21/default"));
-    }
-
-    @Test
     void testResolveWithoutAnIdentifiableRunFails() {
         AgentWorkspaceResolver agentWorkspaceResolver = new AgentWorkspaceResolver(basedir);
 

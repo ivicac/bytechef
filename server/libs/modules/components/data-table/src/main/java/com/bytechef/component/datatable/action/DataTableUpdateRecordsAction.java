@@ -30,11 +30,13 @@ import static com.bytechef.definition.BaseOutputDefinition.OutputResponse;
 import static com.bytechef.platform.configuration.domain.Environment.DEVELOPMENT;
 
 import com.bytechef.component.datatable.util.DataTableUtils;
+import com.bytechef.component.datatable.util.DataTableUtils.ResolvedDataTable;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.Property;
 import com.bytechef.definition.BaseProperty.ResourceType;
 import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowConditions;
@@ -99,7 +101,12 @@ public class DataTableUpdateRecordsAction {
 
         String baseName = inputParameters.getRequiredString(TABLE);
 
-        var rowSchema = DataTableUtils.rowObjectSchema(dataTableService, DEVELOPMENT, baseName);
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, DEVELOPMENT.ordinal());
+
+        DataTableInfo dataTableInfo = resolvedDataTable.dataTableInfo();
+
+        var rowSchema = DataTableUtils.rowObjectSchema(dataTableInfo);
 
         var outputSchema = object()
             .properties(
@@ -109,7 +116,7 @@ public class DataTableUpdateRecordsAction {
                     .label("Records")
                     .items((Property.ValueProperty<?>) rowSchema));
 
-        List<DataTableRow> rows = dataTableRowService.listRows(baseName, 1, 0, DEVELOPMENT.ordinal());
+        List<DataTableRow> rows = dataTableRowService.listRows(resolvedDataTable.dataTableRef(), 1, 0);
 
         if (rows.isEmpty()) {
             return OutputResponse.of(outputSchema);
@@ -118,7 +125,7 @@ public class DataTableUpdateRecordsAction {
         DataTableRow firstRow = rows.getFirst();
 
         Map<String, Object> sampleRecord = DataTableUtils.createSampleOutput(
-            dataTableService, DEVELOPMENT, baseName, firstRow.id(), firstRow.values());
+            dataTableInfo, firstRow.id(), firstRow.values());
 
         return OutputResponse.of(outputSchema, Map.of(UPDATED_COUNT, 1, RECORDS, List.of(sampleRecord)));
     }
@@ -145,8 +152,11 @@ public class DataTableUpdateRecordsAction {
             throw new IllegalArgumentException("Update Records requires a value for at least one column");
         }
 
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, environmentId);
+
         List<DataTableRow> updatedDataTableRows = dataTableRowService.updateRows(
-            baseName, conditions, values, environmentId);
+            resolvedDataTable.dataTableRef(), conditions, values);
 
         Map<String, Object> result = new HashMap<>();
 

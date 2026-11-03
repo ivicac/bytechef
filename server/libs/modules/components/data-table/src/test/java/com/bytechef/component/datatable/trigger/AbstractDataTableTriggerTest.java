@@ -30,22 +30,32 @@ import com.bytechef.component.definition.TriggerDefinition.WebhookEnableOutput;
 import com.bytechef.component.definition.TriggerDefinition.WebhookRequestFunction;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.platform.component.definition.TriggerContextAware;
+import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
+import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.data.table.domain.DataTableResolution;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * @author Ivica Cardic
  */
 abstract class AbstractDataTableTriggerTest {
 
+    protected static final long DATA_TABLE_ID = 11;
     protected static final String WEBHOOK_URL = "http://localhost/webhooks/workflow-execution-id";
     protected static final String WORKFLOW_EXECUTION_ID = "workflow-execution-id";
 
     protected static long webhookEnable(
-        ModifiableTriggerDefinition triggerDefinition, DataTableWebhookService dataTableWebhookService,
-        DataTableWebhookType dataTableWebhookType) throws Exception {
+        ModifiableTriggerDefinition triggerDefinition, DataTableService dataTableService,
+        DataTableWebhookService dataTableWebhookService, DataTableWebhookType dataTableWebhookType) throws Exception {
+
+        DataTableRef dataTableRef = new DataTableRef("conversations", 1L);
 
         Parameters inputParameters = mock(Parameters.class);
         TriggerContext triggerContext = mock(
@@ -53,9 +63,12 @@ abstract class AbstractDataTableTriggerTest {
 
         when(inputParameters.getRequiredString(TABLE)).thenReturn("conversations");
         when(((TriggerContextAware) triggerContext).getEnvironmentId()).thenReturn(1L);
-        when(dataTableWebhookService.addWebhook(
-            "conversations", WORKFLOW_EXECUTION_ID, WEBHOOK_URL, dataTableWebhookType, 1L))
-                .thenReturn(42L);
+        when(dataTableService.fetchDataTableResolution("conversations", 1L))
+            .thenReturn(Optional.of(new DataTableResolution(DATA_TABLE_ID, dataTableRef)));
+        when(dataTableService.listTables(1L))
+            .thenReturn(List.of(new DataTableInfo(DATA_TABLE_ID, "conversations", null, List.of(), Instant.EPOCH)));
+        when(dataTableWebhookService.addWebhook(dataTableRef, WORKFLOW_EXECUTION_ID, WEBHOOK_URL, dataTableWebhookType))
+            .thenReturn(42L);
 
         WebhookEnableFunction webhookEnableFunction = triggerDefinition.getWebhookEnable()
             .orElseThrow();

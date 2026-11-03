@@ -2003,14 +2003,25 @@ export type AutomationWorkflowProjectComponent = {
 export type AutomationWorkflowProjectConfiguration = {
   __typename?: 'AutomationWorkflowProjectConfiguration';
   automationHubVisible: Scalars['Boolean']['output'];
+  connectedUserCount: Scalars['Int']['output'];
   enabled: Scalars['Boolean']['output'];
   environmentId: Scalars['ID']['output'];
   id: Scalars['ID']['output'];
   lastExecutionDate?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  permissionExpression?: Maybe<Scalars['String']['output']>;
   projectId: Scalars['ID']['output'];
   projectVersion: Scalars['Int']['output'];
   workflows: Array<AutomationWorkflowProjectConfigurationWorkflow>;
+};
+
+export type AutomationWorkflowProjectConfigurationConnectedUser = {
+  __typename?: 'AutomationWorkflowProjectConfigurationConnectedUser';
+  connectedUserId: Scalars['ID']['output'];
+  email?: Maybe<Scalars['String']['output']>;
+  externalId: Scalars['String']['output'];
+  name?: Maybe<Scalars['String']['output']>;
 };
 
 export type AutomationWorkflowProjectConfigurationConnectionSlot = {
@@ -2019,6 +2030,12 @@ export type AutomationWorkflowProjectConfigurationConnectionSlot = {
   providableConnections: Array<AutomationWorkflowProjectConfigurationProvidableConnection>;
   required: Scalars['Boolean']['output'];
   title: Scalars['String']['output'];
+};
+
+export type AutomationWorkflowProjectConfigurationDeleteImpact = {
+  __typename?: 'AutomationWorkflowProjectConfigurationDeleteImpact';
+  connectedUserCount: Scalars['Int']['output'];
+  referenceWorkflowCount: Scalars['Int']['output'];
 };
 
 export type AutomationWorkflowProjectConfigurationInput = {
@@ -2038,6 +2055,12 @@ export type AutomationWorkflowProjectConfigurationInputOption = {
   description?: Maybe<Scalars['String']['output']>;
   label?: Maybe<Scalars['String']['output']>;
   value: Scalars['String']['output'];
+};
+
+export type AutomationWorkflowProjectConfigurationMoveImpact = {
+  __typename?: 'AutomationWorkflowProjectConfigurationMoveImpact';
+  skipped: Array<ConfigurationMoveSkipped>;
+  workflows: Array<AutomationWorkflowProjectConfigurationVersionImpactWorkflow>;
 };
 
 export type AutomationWorkflowProjectConfigurationProvidableConnection = {
@@ -2326,6 +2349,20 @@ export type ComponentRuleSettings = {
   observeMode: Scalars['Boolean']['output'];
 };
 
+export type ConfigurationMoveResult = {
+  __typename?: 'ConfigurationMoveResult';
+  movedConnectedUserIds: Array<Scalars['ID']['output']>;
+  needsAttentionConnectedUserIds: Array<Scalars['ID']['output']>;
+  skipped: Array<ConfigurationMoveSkipped>;
+};
+
+export type ConfigurationMoveSkipped = {
+  __typename?: 'ConfigurationMoveSkipped';
+  connectedUserId: Scalars['ID']['output'];
+  reason: Scalars['String']['output'];
+  workflowLabels: Array<Scalars['String']['output']>;
+};
+
 export type ConnectedUser = {
   __typename?: 'ConnectedUser';
   createdBy?: Maybe<Scalars['String']['output']>;
@@ -2336,6 +2373,14 @@ export type ConnectedUser = {
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['String']['output']>;
   version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ConnectedUserAutomationProjectConfiguration = {
+  __typename?: 'ConnectedUserAutomationProjectConfiguration';
+  configurationId: Scalars['ID']['output'];
+  configurationName: Scalars['String']['output'];
+  configurationProjectVersion: Scalars['Int']['output'];
+  projectId: Scalars['ID']['output'];
 };
 
 export type ConnectedUserCodeWorkflowReference = {
@@ -2392,6 +2437,7 @@ export type ConnectedUserPage = {
 
 export type ConnectedUserProject = {
   __typename?: 'ConnectedUserProject';
+  automationProjectConfigurations: Array<ConnectedUserAutomationProjectConfiguration>;
   connectedUser: ConnectedUser;
   connectedUserProjectWorkflows: Array<ConnectedUserProjectWorkflow>;
   createdBy?: Maybe<Scalars['String']['output']>;
@@ -3050,7 +3096,7 @@ export type DataTableWebhook = {
   environmentId: Scalars['Long']['output'];
   id: Scalars['ID']['output'];
   type: DataTableWebhookType;
-  url: Scalars['String']['output'];
+  workflowExecutionId: Scalars['String']['output'];
 };
 
 export enum DataTableWebhookType {
@@ -4231,6 +4277,7 @@ export type Mutation = {
   inviteWorkspaceUser: WorkspaceUser;
   /** Mark all of a user's connections as pending reassignment. Returns per-row outcome so partial failures surface; a silent no-op batch does not look like an error. (admin only) */
   markConnectionsPendingReassignment: BulkReassignResult;
+  moveAutomationWorkflowProjectConfigurationConnectedUsers: ConfigurationMoveResult;
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
   /** Promote a resource into another environment: creates the counterpart on first promotion, syncs it afterwards. */
   promoteToEnvironment: EnvironmentPromotionResult;
@@ -4523,6 +4570,7 @@ export type Mutation = {
   /** Update a workspace user's role. Requires ADMIN workspace role. */
   updateWorkspaceUserRole: WorkspaceUser;
   updateWorkspaceVariable: Variable;
+  upgradeAutomationWorkflowProjectConfigurationConnectedUsers: ConfigurationMoveResult;
   uploadLicence: LicenceType;
 };
 
@@ -4898,6 +4946,8 @@ export type MutationCreateAutomationWorkflowProjectConfigurationArgs = {
   automationHubVisible: Scalars['Boolean']['input'];
   enabled: Scalars['Boolean']['input'];
   environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['ID']['input'];
   projectVersion: Scalars['Int']['input'];
 };
@@ -5687,6 +5737,13 @@ export type MutationMarkConnectionsPendingReassignmentArgs = {
 };
 
 
+export type MutationMoveAutomationWorkflowProjectConfigurationConnectedUsersArgs = {
+  connectedUserIds: Array<Scalars['ID']['input']>;
+  sourceId: Scalars['ID']['input'];
+  targetId: Scalars['ID']['input'];
+};
+
+
 export type MutationPlaygroundChatCompletionArgs = {
   input: PlaygroundChatCompletionInput;
 };
@@ -5704,6 +5761,7 @@ export type MutationProvisionConnectedUserMcpServerArgs = {
 
 
 export type MutationProvisionConnectedUserProjectWorkflowsArgs = {
+  configurationId: Scalars['ID']['input'];
   connectedUserId: Scalars['ID']['input'];
   workflows: Array<ProvisionConnectedUserProjectWorkflowInput>;
 };
@@ -6443,6 +6501,8 @@ export type MutationUpdateAutomationWorkflowProjectConfigurationArgs = {
   automationHubVisible: Scalars['Boolean']['input'];
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
   projectVersion: Scalars['Int']['input'];
 };
 
@@ -6789,6 +6849,12 @@ export type MutationUpdateWorkspaceVariableArgs = {
   id: Scalars['ID']['input'];
   input: VariableInput;
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpgradeAutomationWorkflowProjectConfigurationConnectedUsersArgs = {
+  connectedUserIds: Array<Scalars['ID']['input']>;
+  targetId: Scalars['ID']['input'];
 };
 
 
@@ -7188,9 +7254,20 @@ export type ProvisionableConnectedUserMcpServer = {
 
 export type ProvisionableConnectedUserProject = {
   __typename?: 'ProvisionableConnectedUserProject';
+  assignedConfigurationId?: Maybe<Scalars['ID']['output']>;
+  configurations: Array<ProvisionableConnectedUserProjectConfiguration>;
   name: Scalars['String']['output'];
   projectId: Scalars['ID']['output'];
   projectVersion: Scalars['Int']['output'];
+  workflows: Array<ProvisionableConnectedUserProjectWorkflow>;
+};
+
+export type ProvisionableConnectedUserProjectConfiguration = {
+  __typename?: 'ProvisionableConnectedUserProjectConfiguration';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  projectVersion: Scalars['Int']['output'];
+  selfServe: Scalars['Boolean']['output'];
   workflows: Array<ProvisionableConnectedUserProjectWorkflow>;
 };
 
@@ -7425,6 +7502,10 @@ export type Query = {
   authorities: Array<Scalars['String']['output']>;
   automationSearch: Array<SearchResult>;
   automationWorkflowProjectCategories: Array<AutomationWorkflowProjectCategory>;
+  automationWorkflowProjectConfigurationConnectedUsers: Array<AutomationWorkflowProjectConfigurationConnectedUser>;
+  automationWorkflowProjectConfigurationDeleteImpact: AutomationWorkflowProjectConfigurationDeleteImpact;
+  automationWorkflowProjectConfigurationMoveImpact: AutomationWorkflowProjectConfigurationMoveImpact;
+  automationWorkflowProjectConfigurationUpgradeImpact: AutomationWorkflowProjectConfigurationMoveImpact;
   automationWorkflowProjectConfigurationVersionImpact: AutomationWorkflowProjectConfigurationVersionImpact;
   automationWorkflowProjectConfigurationWorkflowInputOptions: Array<AutomationWorkflowProjectConfigurationInputOption>;
   automationWorkflowProjectConfigurationWorkflowProvidableValues: AutomationWorkflowProjectConfigurationWorkflowProvidableValues;
@@ -7558,9 +7639,9 @@ export type Query = {
   generationJobStatus?: Maybe<GenerationJobStatus>;
   identityProvider?: Maybe<IdentityProviderType>;
   identityProviders: Array<Maybe<IdentityProviderType>>;
+  integrationCodeWorkflowSource: Scalars['String']['output'];
   integrationVersionWorkflowChange: VersionWorkflowChange;
   integrationVersionWorkflowChanges: VersionWorkflowChanges;
-  integrationCodeWorkflowSource: Scalars['String']['output'];
   integrationWorkflows: Array<IntegrationWorkflow>;
   integrationWorkflowsByIntegrationId: Array<IntegrationWorkflow>;
   jobFileLogs: LogPage;
@@ -8767,6 +8848,11 @@ export type QueryIdentityProviderArgs = {
 };
 
 
+export type QueryIntegrationCodeWorkflowSourceArgs = {
+  integrationId: Scalars['ID']['input'];
+};
+
+
 export type QueryIntegrationVersionWorkflowChangeArgs = {
   integrationId: Scalars['ID']['input'];
   integrationVersion: Scalars['Int']['input'];
@@ -8777,11 +8863,6 @@ export type QueryIntegrationVersionWorkflowChangeArgs = {
 export type QueryIntegrationVersionWorkflowChangesArgs = {
   integrationId: Scalars['ID']['input'];
   integrationVersion: Scalars['Int']['input'];
-};
-
-
-export type QueryIntegrationCodeWorkflowSourceArgs = {
-  integrationId: Scalars['ID']['input'];
 };
 
 
@@ -9881,6 +9962,23 @@ export type UpdateRowInput = {
   values: Scalars['Map']['input'];
 };
 
+export type Variable = {
+  __typename?: 'Variable';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+export type VariableInput = {
+  name: Scalars['String']['input'];
+  value: Scalars['String']['input'];
+};
+
 export type VersionWorkflowChange = {
   __typename?: 'VersionWorkflowChange';
   baseVersion?: Maybe<Scalars['Int']['output']>;
@@ -9908,23 +10006,6 @@ export type VersionWorkflowChanges = {
   workflows: Array<VersionWorkflowChangeSummary>;
 };
 
-export type Variable = {
-  __typename?: 'Variable';
-  createdBy?: Maybe<Scalars['String']['output']>;
-  createdDate?: Maybe<Scalars['String']['output']>;
-  environmentId: Scalars['ID']['output'];
-  id: Scalars['ID']['output'];
-  lastModifiedBy?: Maybe<Scalars['String']['output']>;
-  lastModifiedDate?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-  value: Scalars['String']['output'];
-};
-
-export type VariableInput = {
-  name: Scalars['String']['input'];
-  value: Scalars['String']['input'];
-};
-
 export type Workflow = {
   __typename?: 'Workflow';
   createdBy?: Maybe<Scalars['String']['output']>;
@@ -9938,13 +10019,6 @@ export type Workflow = {
   triggers: Array<WorkflowTrigger>;
   version?: Maybe<Scalars['Int']['output']>;
 };
-
-export enum WorkflowChangeType {
-  Added = 'ADDED',
-  Modified = 'MODIFIED',
-  Removed = 'REMOVED',
-  Unchanged = 'UNCHANGED'
-}
 
 export type WorkflowAlertEvent = {
   __typename?: 'WorkflowAlertEvent';
@@ -9999,6 +10073,13 @@ export enum WorkflowAlertRuleType {
   LatencySpike = 'LATENCY_SPIKE',
   LatencyThreshold = 'LATENCY_THRESHOLD',
   NoActivity = 'NO_ACTIVITY'
+}
+
+export enum WorkflowChangeType {
+  Added = 'ADDED',
+  Modified = 'MODIFIED',
+  Removed = 'REMOVED',
+  Unchanged = 'UNCHANGED'
 }
 
 export type WorkflowConfigurationInput = {

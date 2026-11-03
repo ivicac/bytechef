@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
+import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -47,12 +48,13 @@ class DataTableRecordUpdatedTriggerTest extends AbstractDataTableTriggerTest {
 
     @Test
     void testWebhookEnableRegistersTheWorkflowExecutionId() throws Exception {
+        DataTableService dataTableService = mock(DataTableService.class);
         DataTableWebhookService dataTableWebhookService = mock(DataTableWebhookService.class);
 
         assertEquals(
             42L,
             webhookEnable(
-                DataTableRecordUpdatedTrigger.of(null, null, dataTableWebhookService), dataTableWebhookService,
-                DataTableWebhookType.RECORD_UPDATED));
+                DataTableRecordUpdatedTrigger.of(null, dataTableService, dataTableWebhookService), dataTableService,
+                dataTableWebhookService, DataTableWebhookType.RECORD_UPDATED));
     }
 }
